@@ -80,6 +80,40 @@
   pointer-events: none;
 }
 
+/* Input with inline unit dropdown */
+.form-input--with-unit-sel {
+  padding-right: 80px;
+}
+
+.input-unit-sel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  border: none;
+  border-left: 1.5px solid var(--slate-200);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--slate-50);
+  color: var(--slate-600);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 0 6px 0 8px;
+  cursor: pointer;
+  outline: none;
+  min-width: 62px;
+  -webkit-appearance: auto;
+  appearance: auto;
+}
+
+.input-unit-sel:hover {
+  background: var(--green-50);
+}
+
+.input-unit-sel:focus {
+  background: var(--green-50);
+  border-color: var(--green-500);
+}
+
 .radio-group {
   display: flex;
   flex-wrap: wrap;

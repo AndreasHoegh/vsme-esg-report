@@ -96,6 +96,35 @@ export function RadioGroup({ name, value, onChange, options }) {
   )
 }
 
+export function InputWithUnitSelect({ id, value, onChange, type = 'number', min, max, step, disabled, unitValue, unitOptions, onUnitChange, ...rest }) {
+  return (
+    <div className="input-unit-wrap">
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        min={min}
+        max={max}
+        step={step}
+        disabled={disabled}
+        className="form-input form-input--with-unit-sel"
+        {...rest}
+      />
+      <select
+        value={unitValue}
+        onChange={e => onUnitChange(e.target.value)}
+        className="input-unit-sel"
+        onClick={e => e.stopPropagation()}
+      >
+        {(unitOptions || []).map(o => (
+          <option key={o} value={o}>{o}</option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 export function CalcField({ label, value, unit, tooltip }) {
   return (
     <div className="calc-field">

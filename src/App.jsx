@@ -17,19 +17,19 @@ import './App.css'
 const STEPS = [
   { id: 'B1', label: 'General Info', component: Step1_GeneralInfo },
   { id: 'B2', label: 'Policies', component: Step2_Policies },
-  { id: 'B3', label: 'Energy', component: Step3_Energy },
-  { id: 'B4', label: 'GHG', component: Step4_GHG },
-  { id: 'B5', label: 'Water', component: Step5_Water },
-  { id: 'B6', label: 'Waste', component: Step6_Waste },
-  { id: 'B7', label: 'Workforce', component: Step7_Workforce },
-  { id: 'B8', label: 'Safety', component: Step8_Safety },
-  { id: 'B9', label: 'Pay', component: Step9_Pay },
-  { id: 'B10', label: 'Social', component: Step10_Social },
-  { id: 'B11', label: 'Governance', component: Step11_Governance },
+  { id: 'B3', label: 'Energy & GHG', component: Step3_Energy },
+  { id: 'B4', label: 'Pollution', component: Step4_GHG },
+  { id: 'B5', label: 'Biodiversity', component: Step5_Water },
+  { id: 'B6', label: 'Water', component: Step6_Waste },
+  { id: 'B7', label: 'Waste & Circular', component: Step7_Workforce },
+  { id: 'B8', label: 'Workforce', component: Step8_Safety },
+  { id: 'B9', label: 'Health & Safety', component: Step9_Pay },
+  { id: 'B10', label: 'Pay & Training', component: Step10_Social },
+  { id: 'B11', label: 'Corp. Conduct', component: Step11_Governance },
 ]
 
 function AppInner() {
-  const { data, currentStep, setCurrentStep, markStepComplete, clearDraft, lastSaved, completionPercent } = useForm()
+  const { data, currentStep, setCurrentStep, completedSteps, clearDraft, lastSaved, completionPercent } = useForm()
   const [showEditor, setShowEditor] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -37,7 +37,6 @@ function AppInner() {
   const StepComponent = STEPS[currentStep].component
 
   const goNext = () => {
-    markStepComplete(currentStep)
     if (currentStep < STEPS.length - 1) setCurrentStep(currentStep + 1)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -105,12 +104,12 @@ function AppInner() {
               {STEPS.map((s, i) => (
                 <button
                   key={s.id}
-                  className={`step-nav-item${i === currentStep ? ' step-nav-item--active' : ''}${i < currentStep ? ' step-nav-item--done' : ''}`}
+                  className={`step-nav-item${i === currentStep ? ' step-nav-item--active' : ''}${completedSteps.includes(i) ? ' step-nav-item--done' : ''}`}
                   onClick={() => { setCurrentStep(i); setSidebarOpen(false); window.scrollTo({ top: 0 }) }}
                 >
                   <span className="step-nav-badge">{s.id}</span>
                   <span className="step-nav-label">{s.label}</span>
-                  {i < currentStep && <span className="step-nav-check">✓</span>}
+                  {completedSteps.includes(i) && <span className="step-nav-check">✓</span>}
                 </button>
               ))}
             </nav>

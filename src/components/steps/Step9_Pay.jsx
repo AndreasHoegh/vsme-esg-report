@@ -10,104 +10,129 @@ export default function Step9_Pay() {
   const { data, update } = useForm()
   const u = (f) => (v) => update({ [f]: v })
 
-  const maleAvg = parseFloat(data.maleAvgSalary) || 0
-  const femaleAvg = parseFloat(data.femaleAvgSalary) || 0
+  const employees = parseFloat(data.totalEmployees) || 0
+  const injuries = parseFloat(data.workRelatedInjuries) || 0
+  const lostDays = parseFloat(data.lostDays) || 0
+  const fatalities = parseFloat(data.workRelatedFatalities) || 0
+  const fatalitiesIll = parseFloat(data.fatalitiesFromIllHealth) || 0
 
-  // Pay gap = (Male avg - Female avg) / Male avg × 100
-  const payGap = maleAvg > 0 && femaleAvg > 0
-    ? (((maleAvg - femaleAvg) / maleAvg) * 100).toFixed(1)
-    : ''
+  // VSME frequency rate formula: (accidents × 200,000) / (employees × 2,000)
+  // = accidents × 100 / employees  → injuries per 200,000 hours worked
+  const hoursWorked = employees * 2000
+  const frequencyRate = injuries > 0 && employees > 0
+    ? ((injuries * 200_000) / hoursWorked).toFixed(2) : ''
 
   return (
     <div className="step-content">
       <div className="step-intro">
         <span className="step-badge">B9</span>
         <div>
-          <h2>Pay &amp; Benefits</h2>
-          <p>Compensation fairness, gender pay gap, and employee benefits.</p>
+          <h2>Health &amp; Safety</h2>
+          <p>Work-related accidents, fatalities, and health and safety management.</p>
         </div>
       </div>
 
       <div className="info-box">
-        <strong>Gender Pay Gap</strong> is auto-calculated as: (Male avg. salary − Female avg. salary) ÷ Male avg. salary × 100.
-        A positive number means men earn more on average.
+        <strong>VSME frequency rate formula:</strong> Accident frequency rate = (Number of accidents × 200,000) ÷ Total hours worked.
+        Based on 100 employees × 2,000 hours/year = 200,000 reference hours. Auto-calculated from your employee count.
       </div>
 
       <section className="form-section">
-        <h3>Gender Pay Gap</h3>
+        <h3>Work-Related Accidents</h3>
         <div className="form-grid form-grid--2">
-          <FormField label={`Male Average Salary (${data.currency})`}
-            tooltip="Average annual gross salary for male employees." id="maleAvgSalary">
-            <Input id="maleAvgSalary" type="number" min="0" step="100"
-              value={data.maleAvgSalary} onChange={u('maleAvgSalary')} unit={data.currency} />
+          <FormField
+            label="Number of Work-Related Accidents"
+            required
+            tooltip="Recordable work-related accidents occurring during the reporting period, excluding minor first-aid-only incidents."
+            id="injuries"
+          >
+            <Input id="injuries" type="number" min="0" value={data.workRelatedInjuries} onChange={u('workRelatedInjuries')} />
           </FormField>
-          <FormField label={`Female Average Salary (${data.currency})`}
-            tooltip="Average annual gross salary for female employees." id="femaleAvgSalary">
-            <Input id="femaleAvgSalary" type="number" min="0" step="100"
-              value={data.femaleAvgSalary} onChange={u('femaleAvgSalary')} unit={data.currency} />
+          <FormField
+            label="Lost Working Days"
+            tooltip="Total calendar days lost due to work-related accidents or occupational illness."
+            id="lostDays"
+          >
+            <Input id="lostDays" type="number" min="0" value={data.lostDays} onChange={u('lostDays')} />
           </FormField>
         </div>
 
-        {payGap !== '' && (
-          <div className={`pay-gap-result ${parseFloat(payGap) > 10 ? 'pay-gap-high' : parseFloat(payGap) > 0 ? 'pay-gap-mid' : 'pay-gap-low'}`}>
-            <span className="pay-gap-label">Gender Pay Gap</span>
-            <span className="pay-gap-value">{payGap}%</span>
-            <span className="pay-gap-desc">
-              {parseFloat(payGap) > 10
-                ? 'Above EU average — consider pay equity analysis'
-                : parseFloat(payGap) > 0
-                ? 'Moderate gap — monitor and review'
-                : 'Women earn as much or more than men on average'}
-            </span>
-          </div>
-        )}
-      </section>
-
-      <section className="form-section">
-        <h3>CEO to Worker Pay Ratio</h3>
-        <div className="form-grid form-grid--2">
-          <FormField label="CEO / Highest-Paid Executive Annual Pay"
-            tooltip={`Total compensation of the highest-paid executive in ${data.currency}.`} id="ceoPay">
-            <Input id="ceoPay" type="number" min="0" step="1000"
-              value={data.ceoPay} onChange={u('ceoPay')} unit={data.currency} />
-          </FormField>
-          <FormField label="Median Worker Annual Pay"
-            tooltip={`Median annual gross pay of all employees in ${data.currency}.`} id="medianPay">
-            <Input id="medianPay" type="number" min="0" step="1000"
-              value={data.medianPay} onChange={u('medianPay')} unit={data.currency} />
-          </FormField>
-        </div>
-        {data.ceoPay && data.medianPay && parseFloat(data.medianPay) > 0 && (
+        {frequencyRate && (
           <CalcField
-            label="CEO to Median Worker Ratio"
-            value={(parseFloat(data.ceoPay) / parseFloat(data.medianPay)).toFixed(1)}
-            unit="× median"
-            tooltip="Ratio of CEO pay to median employee pay. Industry average varies widely."
+            label="Accident Frequency Rate (AFR)"
+            value={frequencyRate}
+            unit="per 200,000 hours"
+            tooltip="VSME AFR = (Accidents × 200,000) ÷ (Employees × 2,000 hours). Based on total employees entered in B8."
           />
         )}
       </section>
 
       <section className="form-section">
-        <h3>Minimum Wage &amp; Benefits</h3>
-        <FormField label="Does all pay meet or exceed the statutory minimum wage?"
-          tooltip="Confirm all employees (incl. part-time, temp) are paid at or above the legal minimum.">
-          <RadioGroup name="minWage" value={data.minimumWageCompliance} onChange={u('minimumWageCompliance')} options={YES_NO} />
-        </FormField>
-        <FormField label="Does the company pay a living wage?"
-          tooltip="A living wage covers basic needs (housing, food, transport) — typically higher than statutory minimum.">
-          <RadioGroup name="livingWage" value={data.livingWagePolicy} onChange={u('livingWagePolicy')} options={YES_NO} />
-        </FormField>
-        <FormField label="Employee Benefits" tooltip="Describe benefits provided beyond salary, e.g. pension, health, childcare.">
-          <RichEditor value={data.benefitsDescription} onChange={u('benefitsDescription')}
-            placeholder="Describe employee benefits: pension contributions, health insurance, flexible working, childcare support, etc." />
-        </FormField>
+        <h3>Fatalities</h3>
+        <p className="section-desc">VSME requires separate disclosure of fatalities from injuries and from ill-health.</p>
+        <div className="form-grid form-grid--2">
+          <FormField
+            label="Fatalities from Work-Related Injuries"
+            required
+            tooltip="Number of employee deaths resulting directly from a work-related accident during the reporting period."
+            id="fatalities"
+          >
+            <Input id="fatalities" type="number" min="0" value={data.workRelatedFatalities} onChange={u('workRelatedFatalities')} />
+          </FormField>
+          <FormField
+            label="Fatalities from Work-Related Ill-Health"
+            tooltip="Number of employee deaths resulting from occupational disease or work-related ill-health."
+            id="fatalitiesIll"
+          >
+            <Input id="fatalitiesIll" type="number" min="0" value={data.fatalitiesFromIllHealth} onChange={u('fatalitiesFromIllHealth')} />
+          </FormField>
+        </div>
+        {(fatalities + fatalitiesIll) > 0 && (
+          <CalcField
+            label="Total Fatalities"
+            value={(fatalities + fatalitiesIll).toString()}
+            unit="deaths"
+            tooltip="Combined fatalities from injuries and ill-health."
+          />
+        )}
       </section>
 
       <section className="form-section">
-        <h3>Pay Narrative</h3>
-        <FormField label="Pay Context &amp; Actions" tooltip="Describe pay philosophy and any actions to address inequities.">
-          <RichEditor value={data.payNarrative} onChange={u('payNarrative')}
-            placeholder="Describe your approach to fair pay, any pay equity reviews, and actions taken to close gaps…" />
+        <h3>Occupational Ill-Health</h3>
+        <div className="form-grid form-grid--2">
+          <FormField
+            label="Cases of Work-Related Ill-Health"
+            tooltip="Number of cases of occupational disease or ill-health diagnosed during the reporting period."
+            id="illHealth"
+          >
+            <Input id="illHealth" type="number" min="0" value={data.workRelatedIllHealth} onChange={u('workRelatedIllHealth')} />
+          </FormField>
+          <FormField
+            label="Sick Leave Days"
+            tooltip="Total sick leave days (all causes) taken by employees during the reporting period."
+            id="sickLeave"
+          >
+            <Input id="sickLeave" type="number" min="0" value={data.sickLeaveDays} onChange={u('sickLeaveDays')} />
+          </FormField>
+        </div>
+      </section>
+
+      <section className="form-section">
+        <h3>OHS Management</h3>
+        <FormField
+          label="Does your company have a formal OHS management system?"
+          tooltip="E.g. ISO 45001 certified system, or equivalent structured health and safety management approach."
+        >
+          <RadioGroup name="hasOHS" value={data.hasOHSManagementSystem} onChange={u('hasOHSManagementSystem')} options={YES_NO} />
+        </FormField>
+        {data.hasOHSManagementSystem === 'yes' && (
+          <FormField label="Certification / Standard" tooltip="Name the certification or standard followed." id="ohsCert">
+            <Input id="ohsCert" value={data.ohsCertification} onChange={u('ohsCertification')} placeholder="ISO 45001" />
+          </FormField>
+        )}
+        <FormField label="Health &amp; Safety Narrative" tooltip="Describe safety culture, key risks, programmes, and improvement actions.">
+          <RichEditor value={data.safetyNarrative} onChange={u('safetyNarrative')}
+            placeholder="Describe your health and safety management approach, key workplace risks identified, training delivered, and any improvement initiatives…" />
         </FormField>
       </section>
     </div>

@@ -25,15 +25,21 @@ const COUNTRIES = [
 
 const CURRENCIES = ['EUR','USD','GBP','CHF','DKK','SEK','NOK','PLN','CZK','HUF']
 
-const SIZE_OPTIONS = [
-  { value: 'micro', label: 'Micro (< 10 employees)' },
-  { value: 'small', label: 'Small (10–49 employees)' },
-  { value: 'medium', label: 'Medium (50–249 employees)' },
+const REPORTING_BASIS = [
+  { value: 'individual', label: 'Individual (single legal entity)' },
+  { value: 'consolidated', label: 'Consolidated (group of companies)' },
+]
+
+const REPORTING_MODULE = [
+  { value: 'basic', label: 'Basic Module only (B1–B11)' },
+  { value: 'basic_narrative', label: 'Basic + Narrative Module' },
 ]
 
 export default function Step1_GeneralInfo() {
   const { data, update } = useForm()
   const u = (field) => (val) => update({ [field]: val })
+
+  const empCount = Number(data.employeeCount)
 
   return (
     <div className="step-content">
@@ -41,7 +47,7 @@ export default function Step1_GeneralInfo() {
         <span className="step-badge">B1</span>
         <div>
           <h2>General Information</h2>
-          <p>Basic details about your company and reporting period.</p>
+          <p>Basic details about your company and the reporting period — required for all VSME disclosures.</p>
         </div>
       </div>
 
@@ -71,7 +77,7 @@ export default function Step1_GeneralInfo() {
 
       <section className="form-section">
         <h3>Company Size</h3>
-        <p className="section-desc">Size determines which VSME disclosures are mandatory vs. voluntary.</p>
+        <p className="section-desc">Determines which VSME disclosures are mandatory vs. voluntary.</p>
         <div className="form-grid form-grid--2">
           <FormField label="Number of Employees (FTE)" required tooltip="Full-time equivalent employees at year-end." id="empCount">
             <Input id="empCount" type="number" min="1" value={data.employeeCount} onChange={u('employeeCount')} placeholder="45" />
@@ -82,13 +88,40 @@ export default function Step1_GeneralInfo() {
         </div>
         {data.employeeCount && (
           <div className="size-badge">
-            {Number(data.employeeCount) < 10
-              ? '🔵 Micro enterprise — Basic module applies'
-              : Number(data.employeeCount) < 50
-              ? '🟢 Small enterprise — Basic module applies'
-              : '🟡 Medium enterprise — Basic module applies; consider Narrative module'}
+            {empCount < 10
+              ? '🔵 Micro enterprise — VSME Basic module applies'
+              : empCount < 50
+              ? '🟢 Small enterprise — VSME Basic module applies'
+              : empCount < 250
+              ? '🟡 Medium enterprise — VSME Basic module applies; consider Narrative module'
+              : '🔴 Large enterprise — VSME Basic + Narrative module recommended; ESRS may apply'}
           </div>
         )}
+      </section>
+
+      <section className="form-section">
+        <h3>Financial Figures</h3>
+        <p className="section-desc">Required for VSME intensity calculations (e.g. GHG emissions per revenue).</p>
+        <div className="form-grid form-grid--2">
+          <FormField
+            label={`Balance Sheet Total (${data.currency || 'EUR'})`}
+            tooltip="Total assets from the balance sheet at year-end. Used to classify enterprise size."
+            id="balanceSum"
+          >
+            <Input id="balanceSum" type="number" min="0" step="1000"
+              value={data.balanceSum} onChange={u('balanceSum')}
+              unit={data.currency || 'EUR'} placeholder="e.g. 5000000" />
+          </FormField>
+          <FormField
+            label={`Net Revenue / Turnover (${data.currency || 'EUR'})`}
+            tooltip="Total revenue for the reporting year. Used to calculate GHG intensity and other ratios."
+            id="revenue"
+          >
+            <Input id="revenue" type="number" min="0" step="1000"
+              value={data.revenue} onChange={u('revenue')}
+              unit={data.currency || 'EUR'} placeholder="e.g. 8000000" />
+          </FormField>
+        </div>
       </section>
 
       <section className="form-section">
@@ -104,6 +137,29 @@ export default function Step1_GeneralInfo() {
             <Input id="repEnd" type="date" value={data.reportingPeriodEnd} onChange={u('reportingPeriodEnd')} />
           </FormField>
         </div>
+        <FormField
+          label="Reporting Basis"
+          required
+          tooltip="Individual = single legal entity. Consolidated = parent company including subsidiaries."
+        >
+          <RadioGroup
+            name="reportingBasis"
+            value={data.reportingBasis}
+            onChange={u('reportingBasis')}
+            options={REPORTING_BASIS}
+          />
+        </FormField>
+        <FormField
+          label="Reporting Module"
+          tooltip="Select which VSME module(s) this report covers."
+        >
+          <RadioGroup
+            name="reportingModule"
+            value={data.reportingModule}
+            onChange={u('reportingModule')}
+            options={REPORTING_MODULE}
+          />
+        </FormField>
       </section>
 
       <section className="form-section">

@@ -16,11 +16,18 @@ function rows(...pairs) {
               .map(([label, value]) => ({ label, value: String(value) }))
 }
 
+function yesNo(v) {
+  if (v === 'yes') return 'Yes'
+  if (v === 'no') return 'No'
+  if (v === 'in-progress') return 'In Progress'
+  return v || ''
+}
+
 // Rough height estimator — used only for packing decisions, not for rendering
 function estimateBlockHeight(block) {
   switch (block.type) {
-    case 'section-band': return 56
-    case 'kpi-row':      return 68
+    case 'section-band': return 62
+    case 'kpi-row':      return 72
     case 'data-table':   return Math.max(block.rows?.length || 0, 1) * 16 + 14
     case 'subtitle':     return 20
     case 'text-block':   return Math.ceil((block.content?.length || 0) / 90) * 14 + 18
@@ -30,10 +37,10 @@ function estimateBlockHeight(block) {
   }
 }
 
-// Pack B1-B11 sections onto as few pages as possible.
+// Pack B1–B11 sections onto as few pages as possible.
 // A new page is started when the next section wouldn't fit in the remaining space.
 function packSections(sections) {
-  const USABLE_H = 760 // conservative usable height per page (accounts for footer + margins)
+  const USABLE_H = 750 // conservative usable height per page (accounts for footer + margins)
   const SECTION_GAP = 20
   const pages = []
   let cur = null
@@ -44,11 +51,9 @@ function packSections(sections) {
     if (!cur) {
       cur = { title: sec.title, badge: sec.badge, blocks: [...sec.blocks], usedH: secH }
     } else if (cur.usedH + SECTION_GAP + secH <= USABLE_H) {
-      // Fits — append a visual spacer then the section's blocks
       cur.blocks.push({ type: 'spacer', height: SECTION_GAP })
       cur.blocks.push(...sec.blocks)
       cur.usedH += SECTION_GAP + secH
-      // Merge display labels (e.g. "B1 · B2")
       const shortLabel = sec.badge
       cur.title = cur.title.replace(/ — .*/, '') + ' · ' + shortLabel
       cur.badge = cur.badge + '/' + shortLabel
@@ -73,7 +78,7 @@ export function buildAllPages(data) {
 
   const packedPages = packSections(sections)
 
-  // Build a badge → page-number map for the TOC (cover=1, toc=2, content starts at 3)
+  // Badge → page-number map for the TOC (cover=1, toc=2, content starts at 3)
   const pageMap = {}
   packedPages.forEach((page, i) => {
     page.blocks
@@ -98,6 +103,7 @@ function buildTOCPage(pageMap = {}) {
   return { title: 'Contents', badge: '', blocks: [{ type: 'toc', pageMap }] }
 }
 
+// B1 — General Information
 function buildB1Page(data) {
   const kpis = [
     data.employeeCount && { label: 'Employees', value: data.employeeCount, unit: 'FTE' },
@@ -112,13 +118,16 @@ function buildB1Page(data) {
       { type: 'section-band', badge: 'B1', title: 'General Information' },
       ...(kpis.length ? [{ type: 'kpi-row', metrics: kpis }] : []),
       { type: 'data-table', rows: rows(
-        ['Company Name', data.companyName],
-        ['Legal Form', data.legalForm],
-        ['Registration', data.registrationNumber],
-        ['Sector', data.sector],
-        ['NACE Code', data.naceCode],
-        ['Reporting Period', data.reportingPeriodStart ? `${data.reportingPeriodStart} — ${data.reportingPeriodEnd}` : ''],
-        ['Contact', [data.contactName, data.contactEmail].filter(Boolean).join('  ·  ')],
+        ['Company Name',     data.companyName],
+        ['Legal Form',       data.legalForm],
+        ['Registration No.', data.registrationNumber],
+        ['Sector',           data.sector],
+        ['NACE Code',        data.naceCode],
+        ['Reporting Period', data.reportingPeriodStart ? `${data.reportingPeriodStart} – ${data.reportingPeriodEnd}` : ''],
+        ['Reporting Basis',  data.reportingBasis === 'individual' ? 'Individual' : data.reportingBasis === 'consolidated' ? 'Consolidated' : ''],
+        ['Balance Sheet',    data.balanceSum ? `${Number(data.balanceSum).toLocaleString()} ${data.currency || ''}` : ''],
+        ['Revenue',          data.revenue ? `${Number(data.revenue).toLocaleString()} ${data.currency || ''}` : ''],
+        ['Contact',          [data.contactName, data.contactEmail].filter(Boolean).join('  ·  ')],
       )},
       ...(data.companyDescription ? [
         { type: 'subtitle', text: 'About the Company' },
@@ -128,112 +137,176 @@ function buildB1Page(data) {
   }
 }
 
+// B2 — Policies & Commitments
 function buildB2Page(data) {
-  const narrative = [data.esgPolicyDescription, data.boardOversightDescription, data.codeOfConductDescription, data.supplierCodeDescription]
-    .map(strip).filter(Boolean).join('\n\n')
+  const TOPICS = [
+    ['Climate Change',   'policyClimate',     'policyClimatePublic',     'policyClimateTargets'],
+    ['Pollution',        'policyPollution',    'policyPollutionPublic',   'policyPollutionTargets'],
+    ['Water & Marine',   'policyWaterMarine',  'policyWaterMarinePublic', 'policyWaterMarineTargets'],
+    ['Biodiversity',     'policyBiodiversity', 'policyBiodiversityPublic','policyBiodiversityTargets'],
+    ['Circular Economy', 'policyCircular',     'policyCircularPublic',    'policyCircularTargets'],
+    ['Own Workforce',    'policyOwnWorkforce', 'policyOwnWorkforcePublic','policyOwnWorkforceTargets'],
+    ['Value Chain',      'policyValueChain',   'policyValueChainPublic',  'policyValueChainTargets'],
+    ['Communities',      'policyCommunities',  'policyCommunitiesPublic', 'policyCommunitiesTargets'],
+    ['Consumers',        'policyConsumers',    'policyConsumersPublic',   'policyConsumersTargets'],
+    ['Governance',       'policyGovernance',   'policyGovernancePublic',  'policyGovernanceTargets'],
+  ]
+
+  const withPolicy  = TOPICS.filter(([, f])    => data[f] === 'yes' || data[f] === 'in-progress').length
+  const publicCount = TOPICS.filter(([,, pf])  => data[pf] === 'yes').length
+  const withTargets = TOPICS.filter(([,,, tf]) => data[tf] === 'yes').length
 
   return {
     title: 'B2 — Policies', badge: 'B2',
     blocks: [
       { type: 'section-band', badge: 'B2', title: 'Policies & Commitments' },
-      { type: 'data-table', rows: rows(
-        ['ESG / Sustainability Policy', data.hasESGPolicy],
-        ['Board ESG Oversight', data.hasBoardESGOversight],
-        ['Code of Conduct', data.hasCodeOfConduct],
-        ['Supplier Code of Conduct', data.hasSupplierCode],
-      )},
-      ...(narrative ? [
-        { type: 'subtitle', text: 'Policy Descriptions' },
-        { type: 'text-block', content: narrative },
-      ] : []),
+      { type: 'kpi-row', metrics: [
+        { label: 'Policies Adopted', value: withPolicy,  unit: `of ${TOPICS.length} topics` },
+        { label: 'Publicly Available', value: publicCount, unit: 'policies' },
+        { label: 'With Targets', value: withTargets, unit: 'topics' },
+      ] },
+      { type: 'subtitle', text: 'Policy Matrix' },
+      { type: 'data-table', rows: TOPICS.map(([label, f, pf, tf]) => ({
+        label,
+        value: [
+          yesNo(data[f]) || '—',
+          data[pf] === 'yes' ? 'Public' : '',
+          data[tf] === 'yes' ? 'Targets' : '',
+        ].filter(v => v && v !== '—').join('  ·  ') || '—',
+      })) },
     ],
   }
 }
 
+// B3 — Energy & GHG Emissions
 function buildB3Page(data) {
-  const total = n(data.totalEnergyConsumption)
-  const renew = n(data.renewableEnergyConsumption)
+  const total  = n(data.totalEnergyConsumption)
+  const renew  = n(data.renewableEnergyConsumption)
   const renewPct = total > 0 ? ((renew / total) * 100).toFixed(1) : null
-  const emp = n(data.employeeCount)
-  const intensity = total > 0 && emp > 0 ? (total / emp).toFixed(2) : null
+  const emp    = n(data.employeeCount)
+  const energyIntensity = total > 0 && emp > 0 ? (total / emp).toFixed(2) : null
+
+  const s1 = n(data.scope1Emissions), s2 = n(data.scope2Emissions), s3 = n(data.scope3Emissions)
+  const totalGHG   = s1 + s2 + s3
+  const ghgIntEmp  = totalGHG > 0 && emp > 0 ? (totalGHG / emp).toFixed(2) : null
 
   return {
-    title: 'B3 — Energy', badge: 'B3',
+    title: 'B3 — Energy & GHG', badge: 'B3',
     blocks: [
-      { type: 'section-band', badge: 'B3', title: 'Energy' },
+      { type: 'section-band', badge: 'B3', title: 'Energy & GHG Emissions' },
+
+      { type: 'subtitle', text: 'Energy Consumption' },
       { type: 'kpi-row', metrics: [
-        total && { label: 'Total Energy', value: total, unit: data.energyUnit },
-        renew && { label: 'Renewable', value: renew, unit: data.energyUnit },
+        total && { label: 'Total Energy', value: total, unit: data.energyUnit || 'MWh' },
+        renew && { label: 'Renewable', value: renew, unit: data.energyUnit || 'MWh' },
         renewPct && { label: 'Renew. Share', value: renewPct, unit: '%' },
-        intensity && { label: 'Intensity', value: intensity, unit: `${data.energyUnit}/emp` },
+        energyIntensity && { label: 'Intensity', value: energyIntensity, unit: `${data.energyUnit || 'MWh'}/emp` },
       ].filter(Boolean) },
       { type: 'data-table', rows: rows(
-        ['Non-Renewable Energy', total > 0 ? `${(total - renew).toFixed(2)} ${data.energyUnit}` : ''],
-        ['Energy Management System', data.hasEnergyManagementSystem],
+        ['Non-Renewable Energy',      total > 0 ? `${(total - renew).toFixed(2)} ${data.energyUnit || 'MWh'}` : ''],
+        ['Electricity',               data.electricityConsumption ? `${data.electricityConsumption} ${data.energyUnit || 'MWh'}` : ''],
+        ['Natural Gas',               data.naturalGasConsumption  ? `${data.naturalGasConsumption} ${data.gasUnit || 'm³'}` : ''],
+        ['Fuel Oil / Diesel',         data.fuelOilConsumption     ? `${data.fuelOilConsumption} ${data.fuelOilUnit || 'L'}` : ''],
+        ['District Heating/Cooling',  data.districtHeatingConsumption ? `${data.districtHeatingConsumption} ${data.districtUnit || 'MWh'}` : ''],
+        ['Energy Management System',  yesNo(data.hasEnergyManagementSystem)],
+        ['Energy Reduction Target',   data.energyReductionTarget],
       )},
       ...(data.energyNarrative ? [
         { type: 'subtitle', text: 'Energy Narrative' },
         { type: 'text-block', content: strip(data.energyNarrative) },
       ] : []),
-      ...(data.images?.energyImage ? [
-        { type: 'image', src: data.images.energyImage, label: 'Energy certificate / utility snapshot' },
-      ] : []),
-    ],
-  }
-}
 
-function buildB4Page(data) {
-  const s1 = n(data.scope1Emissions), s2 = n(data.scope2Emissions), s3 = n(data.scope3Emissions)
-  const total = s1 + s2 + s3
-  const emp = n(data.employeeCount)
-  const intensity = total > 0 && emp > 0 ? (total / emp).toFixed(2) : null
-
-  return {
-    title: 'B4 — GHG', badge: 'B4',
-    blocks: [
-      { type: 'section-band', badge: 'B4', title: 'GHG Emissions' },
+      { type: 'subtitle', text: 'GHG Emissions' },
       { type: 'kpi-row', metrics: [
-        { label: 'Scope 1', value: s1 || '—', unit: data.ghgUnit },
-        { label: 'Scope 2', value: s2 || '—', unit: data.ghgUnit },
-        s3 > 0 && { label: 'Scope 3', value: s3, unit: data.ghgUnit },
-        total > 0 && { label: 'Total GHG', value: total.toFixed(2), unit: data.ghgUnit },
-        intensity && { label: 'Intensity', value: intensity, unit: `${data.ghgUnit}/emp` },
+        { label: 'Scope 1', value: s1 || '0', unit: data.ghgUnit || 'tCO2e' },
+        { label: 'Scope 2', value: s2 || '0', unit: data.ghgUnit || 'tCO2e' },
+        s3 > 0 && { label: 'Scope 3', value: s3, unit: data.ghgUnit || 'tCO2e' },
+        totalGHG > 0 && { label: 'Total GHG', value: totalGHG.toFixed(2), unit: data.ghgUnit || 'tCO2e' },
       ].filter(Boolean) },
       { type: 'data-table', rows: rows(
-        ['Base Year', data.ghgBaseYear],
-        ['Reduction Target', data.ghgReductionTarget],
+        ['GHG Intensity (per emp)', ghgIntEmp ? `${ghgIntEmp} ${data.ghgUnit || 'tCO2e'}/emp` : ''],
+        ['GHG Base Year',          data.ghgBaseYear],
+        ['GHG Reduction Target',   data.ghgReductionTarget],
       )},
       ...([data.methodologyDescription, data.ghgNarrative].map(strip).filter(Boolean).length ? [
-        { type: 'subtitle', text: 'Methodology & Narrative' },
+        { type: 'subtitle', text: 'Methodology & GHG Narrative' },
         { type: 'text-block', content: [data.methodologyDescription, data.ghgNarrative].map(strip).filter(Boolean).join('\n\n') },
       ] : []),
-      ...(data.images?.ghgImage ? [
-        { type: 'image', src: data.images.ghgImage, label: 'GHG emissions chart' },
+      ...(data.images?.energyImage ? [
+        { type: 'image', src: data.images.energyImage, label: 'Energy / GHG chart' },
       ] : []),
     ],
   }
 }
 
+// B4 — Pollution
+function buildB4Page(data) {
+  return {
+    title: 'B4 — Pollution', badge: 'B4',
+    blocks: [
+      { type: 'section-band', badge: 'B4', title: 'Pollution' },
+      { type: 'data-table', rows: rows(
+        ['Reports on Pollution', yesNo(data.hasPollutionReporting)],
+      )},
+      ...(data.hasPollutionReporting === 'yes' && data.pollutionDescription ? [
+        { type: 'subtitle', text: 'Pollution Sources & Measures' },
+        { type: 'text-block', content: strip(data.pollutionDescription) },
+      ] : []),
+      ...(data.pollutionNarrative ? [
+        { type: 'subtitle', text: 'Pollution Narrative' },
+        { type: 'text-block', content: strip(data.pollutionNarrative) },
+      ] : []),
+    ],
+  }
+}
+
+// B5 — Biodiversity
 function buildB5Page(data) {
-  const total = n(data.totalWaterWithdrawal)
+  return {
+    title: 'B5 — Biodiversity', badge: 'B5',
+    blocks: [
+      { type: 'section-band', badge: 'B5', title: 'Biodiversity' },
+      { type: 'data-table', rows: rows(
+        ['Biodiversity-Sensitive Sites', yesNo(data.hasBiodiversitySites)],
+        ['Total Land Use',               data.landUseTotal     ? `${data.landUseTotal} ha` : ''],
+        ['Land in Sensitive Areas',      data.landUseSensitive ? `${data.landUseSensitive} ha` : ''],
+      )},
+      ...(data.hasBiodiversitySites === 'yes' && data.biodiversityDescription ? [
+        { type: 'subtitle', text: 'Biodiversity Description' },
+        { type: 'text-block', content: strip(data.biodiversityDescription) },
+      ] : []),
+      ...(data.biodiversityNarrative ? [
+        { type: 'subtitle', text: 'Biodiversity Narrative' },
+        { type: 'text-block', content: strip(data.biodiversityNarrative) },
+      ] : []),
+    ],
+  }
+}
+
+// B6 — Water
+function buildB6Page(data) {
+  const total    = n(data.totalWaterWithdrawal)
+  const discharge = n(data.waterDischarge)
   const recycled = n(data.waterRecycled)
-  const stress = n(data.waterFromStressedAreas)
+  const stress   = n(data.waterFromStressedAreas)
+  const consumption = total - discharge
   const recycledPct = total > 0 && recycled > 0 ? ((recycled / total) * 100).toFixed(1) : null
-  const stressPct = total > 0 && stress > 0 ? ((stress / total) * 100).toFixed(1) : null
+  const stressPct   = total > 0 && stress  > 0 ? ((stress  / total) * 100).toFixed(1) : null
+  const wUnit = data.waterUnit || 'm³'
 
   return {
-    title: 'B5 — Water', badge: 'B5',
+    title: 'B6 — Water', badge: 'B6',
     blocks: [
-      { type: 'section-band', badge: 'B5', title: 'Water' },
+      { type: 'section-band', badge: 'B6', title: 'Water' },
       { type: 'kpi-row', metrics: [
-        total && { label: 'Total Withdrawal', value: total, unit: data.waterUnit },
-        recycled && { label: 'Recycled', value: recycled, unit: data.waterUnit },
+        total      && { label: 'Total Withdrawal', value: total, unit: wUnit },
+        discharge  && { label: 'Discharge', value: discharge, unit: wUnit },
+        consumption > 0 && { label: 'Consumption', value: consumption.toFixed(2), unit: wUnit },
         recycledPct && { label: 'Recycling Rate', value: recycledPct, unit: '%' },
-        stressPct && { label: 'Stressed Areas', value: stressPct, unit: '%' },
       ].filter(Boolean) },
       { type: 'data-table', rows: rows(
-        ['From Stressed Areas', stress ? `${stress} ${data.waterUnit}` : ''],
-        ['Water Policy', data.hasWaterPolicy],
+        ['From Stressed Areas',     stress ? `${stress} ${wUnit}${stressPct ? ` (${stressPct}%)` : ''}` : ''],
+        ['Discharge Destination',   data.waterDischargeDestination],
       )},
       ...(data.waterNarrative ? [
         { type: 'subtitle', text: 'Water Narrative' },
@@ -243,26 +316,38 @@ function buildB5Page(data) {
   }
 }
 
-function buildB6Page(data) {
+// B7 — Resources & Circular Economy
+function buildB7Page(data) {
   const total = n(data.totalWasteGenerated)
-  const haz = n(data.wasteHazardous)
-  const rec = n(data.wasteRecycled)
+  const haz   = n(data.wasteHazardous)
+  const rec   = n(data.wasteRecycled)
   const recPct = total > 0 && rec > 0 ? ((rec / total) * 100).toFixed(1) : null
+  const wUnit  = data.wasteUnit || 'tonnes'
 
   return {
-    title: 'B6 — Waste', badge: 'B6',
+    title: 'B7 — Waste & Circular', badge: 'B7',
     blocks: [
-      { type: 'section-band', badge: 'B6', title: 'Waste' },
+      { type: 'section-band', badge: 'B7', title: 'Resources & Circular Economy' },
+      { type: 'data-table', rows: rows(
+        ['Circular Economy Approach', yesNo(data.usesCircularEconomy)],
+      )},
+      ...(data.usesCircularEconomy === 'yes' && data.circularEconomyDescription ? [
+        { type: 'subtitle', text: 'Circular Economy' },
+        { type: 'text-block', content: strip(data.circularEconomyDescription) },
+      ] : []),
+
+      { type: 'subtitle', text: 'Waste' },
       { type: 'kpi-row', metrics: [
-        total && { label: 'Total Waste', value: total, unit: data.wasteUnit },
-        haz && { label: 'Hazardous', value: haz, unit: data.wasteUnit },
-        total && haz && { label: 'Non-Hazardous', value: (total - haz).toFixed(3), unit: data.wasteUnit },
+        total && { label: 'Total Waste', value: total, unit: wUnit },
+        haz   && { label: 'Hazardous', value: haz, unit: wUnit },
+        total && haz && { label: 'Non-Hazardous', value: (total - haz).toFixed(2), unit: wUnit },
         recPct && { label: 'Recycling Rate', value: recPct, unit: '%' },
       ].filter(Boolean) },
       { type: 'data-table', rows: rows(
-        ['Recycled / Recovered', data.wasteRecycled ? `${data.wasteRecycled} ${data.wasteUnit}` : ''],
-        ['Disposed to Landfill', data.wasteDisposedLandfill ? `${data.wasteDisposedLandfill} ${data.wasteUnit}` : ''],
-        ['Reduction Target', data.hasWasteReductionTarget],
+        ['Recycled / Recovered', data.wasteRecycled       ? `${data.wasteRecycled} ${wUnit}` : ''],
+        ['Prepared for Reuse',   data.wasteRecycledForReuse ? `${data.wasteRecycledForReuse} ${wUnit}` : ''],
+        ['Incineration',         data.wasteToIncineration ? `${data.wasteToIncineration} ${wUnit}` : ''],
+        ['Landfill Disposal',    data.wasteDisposedLandfill ? `${data.wasteDisposedLandfill} ${wUnit}` : ''],
       )},
       ...(data.wasteNarrative ? [
         { type: 'subtitle', text: 'Waste Narrative' },
@@ -272,60 +357,63 @@ function buildB6Page(data) {
   }
 }
 
-function buildB7Page(data) {
-  const total = n(data.totalEmployees)
+// B8 — Own Workforce
+function buildB8Page(data) {
+  const total  = n(data.totalEmployees)
   const female = n(data.femaleEmployees)
-  const perm = n(data.permanentEmployees)
+  const perm   = n(data.permanentEmployees)
   const femalePct = total > 0 && female > 0 ? ((female / total) * 100).toFixed(1) : null
-  const permPct = total > 0 && perm > 0 ? ((perm / total) * 100).toFixed(1) : null
+  const permPct   = total > 0 && perm   > 0 ? ((perm   / total) * 100).toFixed(1) : null
 
   return {
-    title: 'B7 — Workforce', badge: 'B7',
+    title: 'B8 — Workforce', badge: 'B8',
     blocks: [
-      { type: 'section-band', badge: 'B7', title: 'Own Workforce' },
+      { type: 'section-band', badge: 'B8', title: 'Own Workforce' },
       { type: 'kpi-row', metrics: [
-        total && { label: 'Total Employees', value: total, unit: 'headcount' },
-        perm && { label: 'Permanent', value: perm, unit: permPct ? `${permPct}%` : '' },
-        female && { label: 'Female', value: female, unit: femalePct ? `${femalePct}%` : '' },
+        total  && { label: 'Total Employees', value: total, unit: 'headcount' },
+        perm   && { label: 'Permanent', value: perm,   unit: permPct   ? `${permPct}%`   : '' },
+        female && { label: 'Female',    value: female, unit: femalePct ? `${femalePct}%` : '' },
         data.newHires && { label: 'New Hires', value: data.newHires, unit: 'this year' },
       ].filter(Boolean) },
       { type: 'data-table', rows: rows(
-        ['Full-Time / Part-Time', data.fullTimeEmployees ? `${data.fullTimeEmployees} / ${data.partTimeEmployees || '—'}` : ''],
-        ['Male / Female / Other', data.maleEmployees ? `${data.maleEmployees} / ${data.femaleEmployees || '—'} / ${data.otherGenderEmployees || '—'}` : ''],
-        ['Age <30 / 30–50 / >50', data.employeesUnder30 ? `${data.employeesUnder30} / ${data.employees30to50 || '—'} / ${data.employeesOver50 || '—'}` : ''],
-        ['Employee Turnover', data.employeeTurnover],
+        ['Permanent / Temporary', data.permanentEmployees ? `${data.permanentEmployees} / ${data.temporaryEmployees || '—'}` : ''],
+        ['Full-Time / Part-Time', data.fullTimeEmployees  ? `${data.fullTimeEmployees} / ${data.partTimeEmployees || '—'}` : ''],
+        ['Male / Female / Other', data.maleEmployees      ? `${data.maleEmployees} / ${data.femaleEmployees || '—'} / ${data.otherGenderEmployees || '—'}` : ''],
+        ['Age <30 / 30–50 / >50', data.employeesUnder30  ? `${data.employeesUnder30} / ${data.employees30to50 || '—'} / ${data.employeesOver50 || '—'}` : ''],
+        ['Employee Turnover',     data.employeeTurnover],
+        ['Non-Employee Workers',  data.nonEmployeeWorkers],
       )},
       ...(data.workforceNarrative ? [
         { type: 'subtitle', text: 'Workforce Narrative' },
         { type: 'text-block', content: strip(data.workforceNarrative) },
       ] : []),
-      ...(data.images?.workforceImage ? [
-        { type: 'image', src: data.images.workforceImage, label: 'Team / workplace photo' },
-      ] : []),
     ],
   }
 }
 
-function buildB8Page(data) {
+// B9 — Health & Safety
+function buildB9Page(data) {
   const inj = n(data.workRelatedInjuries)
-  const ld = n(data.lostDays)
   const emp = n(data.totalEmployees)
-  const hrs = emp * 2000
-  const ifr = inj > 0 && hrs > 0 ? ((inj * 1e6) / hrs).toFixed(2) : null
+  // VSME frequency rate: (injuries × 200,000) / (employees × 2,000) = injuries × 100 / employees
+  const freqRate = inj > 0 && emp > 0 ? (inj * 100 / emp).toFixed(2) : null
 
   return {
-    title: 'B8 — Safety', badge: 'B8',
+    title: 'B9 — Health & Safety', badge: 'B9',
     blocks: [
-      { type: 'section-band', badge: 'B8', title: 'Health & Safety' },
+      { type: 'section-band', badge: 'B9', title: 'Health & Safety' },
       { type: 'kpi-row', metrics: [
-        { label: 'Injuries', value: data.workRelatedInjuries || '0', unit: 'cases' },
-        { label: 'Fatalities', value: data.workRelatedFatalities || '0', unit: 'cases' },
-        ld && { label: 'Lost Days', value: ld, unit: 'days' },
-        ifr && { label: 'Freq. Rate', value: ifr, unit: '/M hrs' },
+        { label: 'Injuries',              value: data.workRelatedInjuries  || '0', unit: 'cases' },
+        { label: 'Fatalities (Injury)',   value: data.workRelatedFatalities || '0', unit: 'cases' },
+        { label: 'Fatalities (Ill Health)', value: data.fatalitiesFromIllHealth || '0', unit: 'cases' },
+        freqRate && { label: 'Frequency Rate', value: freqRate, unit: '/100 emp' },
       ].filter(Boolean) },
       { type: 'data-table', rows: rows(
-        ['OHS Management System', data.hasOHSManagementSystem],
-        ['OHS Certification', data.ohsCertification],
+        ['Work-Related Ill Health',  data.workRelatedIllHealth],
+        ['Sick Leave Days',          data.sickLeaveDays],
+        ['Lost Days',                data.lostDays],
+        ['OHS Management System',    yesNo(data.hasOHSManagementSystem)],
+        ['OHS Certification',        data.ohsCertification],
       )},
       ...(data.safetyNarrative ? [
         { type: 'subtitle', text: 'Safety Narrative' },
@@ -335,73 +423,53 @@ function buildB8Page(data) {
   }
 }
 
-function buildB9Page(data) {
-  const mAvg = n(data.maleAvgSalary), fAvg = n(data.femaleAvgSalary)
-  const gap = mAvg > 0 && fAvg > 0 ? (((mAvg - fAvg) / mAvg) * 100).toFixed(1) : null
-
-  return {
-    title: 'B9 — Pay', badge: 'B9',
-    blocks: [
-      { type: 'section-band', badge: 'B9', title: 'Pay & Benefits' },
-      { type: 'kpi-row', metrics: [
-        mAvg && { label: 'Male Avg. Salary', value: mAvg.toLocaleString(), unit: data.currency },
-        fAvg && { label: 'Female Avg. Salary', value: fAvg.toLocaleString(), unit: data.currency },
-        gap !== null && { label: 'Pay Gap', value: `${gap}%`, unit: 'gender' },
-      ].filter(Boolean) },
-      { type: 'data-table', rows: rows(
-        ['Min. Wage Compliance', data.minimumWageCompliance],
-        ['Living Wage Policy', data.livingWagePolicy],
-      )},
-      ...([data.benefitsDescription, data.payNarrative].map(strip).filter(Boolean).length ? [
-        { type: 'subtitle', text: 'Benefits & Narrative' },
-        { type: 'text-block', content: [data.benefitsDescription, data.payNarrative].map(strip).filter(Boolean).join('\n\n') },
-      ] : []),
-    ],
-  }
-}
-
+// B10 — Pay & Training
 function buildB10Page(data) {
+  const mAvg = n(data.maleAvgSalary), fAvg = n(data.femaleAvgSalary)
+  const gap  = mAvg > 0 && fAvg > 0 ? (((mAvg - fAvg) / mAvg) * 100).toFixed(1) : null
+  const cur  = data.currency || ''
+
   return {
-    title: 'B10 — Social', badge: 'B10',
+    title: 'B10 — Pay & Training', badge: 'B10',
     blocks: [
-      { type: 'section-band', badge: 'B10', title: 'Social Matters' },
+      { type: 'section-band', badge: 'B10', title: 'Pay & Training' },
       { type: 'kpi-row', metrics: [
-        data.avgTrainingHours && { label: 'Avg Training Hours', value: data.avgTrainingHours, unit: 'hrs/emp' },
-        data.trainingInvestment && { label: 'Training Investment', value: Number(data.trainingInvestment).toLocaleString(), unit: data.currency },
+        data.avgTrainingHours       && { label: 'Avg Training Hrs', value: data.avgTrainingHours, unit: 'hrs/emp' },
+        data.avgTrainingHoursMale   && { label: 'Training (Male)',   value: data.avgTrainingHoursMale,   unit: 'hrs/emp' },
+        data.avgTrainingHoursFemale && { label: 'Training (Female)', value: data.avgTrainingHoursFemale, unit: 'hrs/emp' },
+        gap !== null && { label: 'Gender Pay Gap', value: `${gap}%`, unit: 'M vs F' },
       ].filter(Boolean) },
       { type: 'data-table', rows: rows(
-        ['Anti-Discrimination Policy', data.hasAntiDiscriminationPolicy],
+        ['Min. Wage Compliance',           yesNo(data.minimumWageCompliance)],
+        ['Collective Bargaining Coverage', data.collectiveBargainingCoverage ? `${data.collectiveBargainingCoverage}%` : ''],
+        ['Male Avg. Salary',              mAvg ? `${mAvg.toLocaleString()} ${cur}` : ''],
+        ['Female Avg. Salary',            fAvg ? `${fAvg.toLocaleString()} ${cur}` : ''],
+        ['Training Investment',           data.trainingInvestment ? `${Number(data.trainingInvestment).toLocaleString()} ${cur}` : ''],
       )},
-      ...([data.communityEngagement, data.socialNarrative].map(strip).filter(Boolean).length ? [
-        { type: 'subtitle', text: 'Social Narrative' },
-        { type: 'text-block', content: [data.communityEngagement, data.socialNarrative].map(strip).filter(Boolean).join('\n\n') },
+      ...(data.payNarrative ? [
+        { type: 'subtitle', text: 'Pay & Training Narrative' },
+        { type: 'text-block', content: strip(data.payNarrative) },
       ] : []),
     ],
   }
 }
 
+// B11 — Corporate Conduct
 function buildB11Page(data) {
-  const bsz = n(data.boardSize)
-  const bind = n(data.boardIndependentMembers)
-  const indPct = bsz > 0 && bind > 0 ? ((bind / bsz) * 100).toFixed(0) : null
+  const convictions = n(data.corruptionConvictions)
+  const fines       = n(data.corruptionFinesTotal)
 
   return {
-    title: 'B11 — Governance', badge: 'B11',
+    title: 'B11 — Corporate Conduct', badge: 'B11',
     blocks: [
-      { type: 'section-band', badge: 'B11', title: 'Governance' },
+      { type: 'section-band', badge: 'B11', title: 'Corporate Conduct' },
       { type: 'kpi-row', metrics: [
-        bsz && { label: 'Board Size', value: bsz, unit: 'members' },
-        indPct && { label: 'Independent', value: `${indPct}%`, unit: 'of board' },
-        data.boardFemaleMembersPercent && { label: 'Female Board', value: data.boardFemaleMembersPercent, unit: '%' },
-      ].filter(Boolean) },
-      { type: 'data-table', rows: rows(
-        ['Anti-Corruption Policy', data.hasAntiCorruptionPolicy],
-        ['Whistleblower Mechanism', data.whistleblowerMechanism],
-        ['Data Privacy Policy', data.dataPrivacyPolicy],
-      )},
-      ...([data.taxTransparency, data.governanceNarrative].map(strip).filter(Boolean).length ? [
-        { type: 'subtitle', text: 'Governance Narrative' },
-        { type: 'text-block', content: [data.taxTransparency, data.governanceNarrative].map(strip).filter(Boolean).join('\n\n') },
+        { label: 'Corruption Convictions', value: convictions || '0', unit: 'cases' },
+        { label: 'Corruption Fines', value: fines ? fines.toLocaleString() : '0', unit: data.currency || '' },
+      ] },
+      ...(data.corruptionNarrative ? [
+        { type: 'subtitle', text: 'Anti-Corruption Narrative' },
+        { type: 'text-block', content: strip(data.corruptionNarrative) },
       ] : []),
     ],
   }
