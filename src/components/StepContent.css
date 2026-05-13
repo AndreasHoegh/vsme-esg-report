@@ -1,0 +1,123 @@
+.step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.step-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, var(--green-50) 0%, var(--blue-50) 100%);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--green-100);
+}
+
+.step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--green-600);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.step-intro h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--slate-800);
+  margin-bottom: 2px;
+}
+
+.step-intro p {
+  font-size: 14px;
+  color: var(--slate-600);
+}
+
+.form-section {
+  background: #fff;
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-section h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--slate-700);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--slate-100);
+}
+
+.section-desc {
+  font-size: 13px;
+  color: var(--slate-500);
+  margin-top: -8px;
+}
+
+.form-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.form-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.form-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.form-grid--4 { grid-template-columns: repeat(4, 1fr); }
+
+@media (max-width: 640px) {
+  .form-grid--2,
+  .form-grid--3,
+  .form-grid--4 { grid-template-columns: 1fr; }
+  .step-intro { padding: 16px; }
+  .form-section { padding: 16px; }
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+  .form-grid--3,
+  .form-grid--4 { grid-template-columns: repeat(2, 1fr); }
+}
+
+.size-badge {
+  padding: 10px 14px;
+  background: var(--green-50);
+  border: 1px solid var(--green-200);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--green-700);
+  font-weight: 500;
+}
+
+.info-box {
+  padding: 12px 16px;
+  background: var(--amber-50);
+  border: 1px solid #fde68a;
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: #92400e;
+}
+
+.info-box strong { font-weight: 600; }
+
+.divider {
+  height: 1px;
+  background: var(--slate-100);
+  margin: 4px 0;
+}
+
+.subsection-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}

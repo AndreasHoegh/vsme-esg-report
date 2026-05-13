@@ -1,0 +1,61 @@
+.rich-editor {
+  border: 1.5px solid var(--slate-200);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+
+.rich-editor:focus-within {
+  border-color: var(--green-500);
+  box-shadow: 0 0 0 3px rgb(34 197 94 / 0.12);
+}
+
+.rich-toolbar {
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--slate-100);
+  background: var(--slate-50);
+}
+
+.rich-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--slate-600);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.rich-btn:hover {
+  background: var(--slate-200);
+  color: var(--slate-800);
+}
+
+.rich-content {
+  min-height: 120px;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--slate-800);
+  outline: none;
+}
+
+.rich-content:empty::before {
+  content: attr(data-placeholder);
+  color: var(--slate-400);
+  pointer-events: none;
+}
+
+.rich-content ul,
+.rich-content ol {
+  padding-left: 20px;
+}
