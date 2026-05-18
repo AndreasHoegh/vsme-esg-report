@@ -12,6 +12,8 @@ import Step9_Pay from './components/steps/Step9_Pay'
 import Step10_Social from './components/steps/Step10_Social'
 import Step11_Governance from './components/steps/Step11_Governance'
 import CanvasEditor from './components/CanvasEditor/CanvasEditor'
+import CloudSyncModal from './components/CloudSyncModal'
+import { useCloudSync } from './hooks/useCloudSync'
 import './App.css'
 
 const STEPS = [
@@ -29,10 +31,18 @@ const STEPS = [
 ]
 
 function AppInner() {
-  const { data, currentStep, setCurrentStep, completedSteps, clearDraft, lastSaved, completionPercent } = useForm()
+  const { data, update, currentStep, setCurrentStep, completedSteps, clearDraft, loadDemo, lastSaved, completionPercent } = useForm()
   const [showEditor, setShowEditor] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [showDemoConfirm, setShowDemoConfirm] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showCloud, setShowCloud] = useState(false)
+  const cloudSync = useCloudSync()
+
+  function handleCloudLoad(reportData) {
+    update(reportData)
+    setCurrentStep(0)
+  }
 
   const StepComponent = STEPS[currentStep].component
 
@@ -80,6 +90,9 @@ function AppInner() {
                 <div className="progress-mini-bar" style={{ width: `${completionPercent}%` }} />
               </div>
             </div>
+            <button className="btn-cloud" onClick={() => setShowCloud(true)} title="Cloud saves">
+              ☁ Cloud
+            </button>
             <button className="btn-export" onClick={() => setShowEditor(true)}>
               📄 Export PDF
             </button>
@@ -115,8 +128,21 @@ function AppInner() {
             </nav>
 
             <div className="sidebar-footer">
+              {!showDemoConfirm ? (
+                <button className="btn-demo" onClick={() => { setShowClearConfirm(false); setShowDemoConfirm(true) }}>
+                  Load Example Data
+                </button>
+              ) : (
+                <div className="clear-confirm">
+                  <p>Replace current data with a pre-filled example report?</p>
+                  <div className="clear-confirm-btns">
+                    <button className="btn-demo-confirm" onClick={() => { loadDemo(); setShowDemoConfirm(false); setSidebarOpen(false) }}>Load</button>
+                    <button className="btn-ghost" onClick={() => setShowDemoConfirm(false)}>Cancel</button>
+                  </div>
+                </div>
+              )}
               {!showClearConfirm ? (
-                <button className="btn-clear" onClick={() => setShowClearConfirm(true)}>
+                <button className="btn-clear" onClick={() => { setShowDemoConfirm(false); setShowClearConfirm(true) }}>
                   🗑 Clear Draft
                 </button>
               ) : (
@@ -159,6 +185,15 @@ function AppInner() {
           </div>
         </main>
       </div>
+
+      {showCloud && (
+        <CloudSyncModal
+          data={data}
+          onLoad={handleCloudLoad}
+          onClose={() => setShowCloud(false)}
+          hook={cloudSync}
+        />
+      )}
     </div>
   )
 }

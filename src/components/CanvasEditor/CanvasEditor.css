@@ -125,6 +125,52 @@
 .ce-btn-export:hover:not(:disabled) { opacity: 0.85; }
 .ce-btn-export:disabled { opacity: 0.5; cursor: default; }
 
+/* ─── Design bar (cover style + font pair) ──────────────── */
+.ce-design-bar {
+  height: 36px;
+  flex-shrink: 0;
+  background: #162032;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  overflow-x: auto;
+}
+
+.ce-design-bar::-webkit-scrollbar { display: none; }
+
+.ce-design-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ce-design-sep {
+  width: 1px;
+  height: 18px;
+  background: #334155;
+  margin: 0 3px;
+  flex-shrink: 0;
+}
+
+.ce-design-btn {
+  padding: 3px 9px;
+  background: transparent;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  color: #94a3b8;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ce-design-btn:hover { background: #334155; color: #e2e8f0; }
+
 /* ─── Properties bar (font/size/opacity) ────────────────── */
 .ce-props {
   background: #162032;

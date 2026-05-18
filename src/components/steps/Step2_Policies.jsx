@@ -86,8 +86,23 @@ function InlineRadio({ name, value, onChange, options }) {
 
 function PolicyRow({ area }) {
   const { data, update } = useForm()
-  const publicField = area.field + 'Public'
+  const publicField  = area.field + 'Public'
   const targetsField = area.field + 'Targets'
+  const policyValue  = data[area.field]
+  const hasPolicy    = policyValue === 'yes' || policyValue === 'in_progress'
+
+  function handlePolicyChange(val) {
+    const updates = { [area.field]: val }
+    if (!hasPolicy && val !== 'yes' && val !== 'in_progress') {
+      updates[publicField]  = ''
+      updates[targetsField] = ''
+    }
+    if (val === 'no') {
+      updates[publicField]  = ''
+      updates[targetsField] = ''
+    }
+    update(updates)
+  }
 
   return (
     <div className="policy-row">
@@ -95,34 +110,38 @@ function PolicyRow({ area }) {
         <span className="policy-row-name">{area.label}</span>
         {area.tooltip && <span className="policy-row-tooltip" title={area.tooltip}>ⓘ</span>}
       </div>
-      <div className="policy-row-cols">
+      <div className={`policy-row-cols${hasPolicy ? '' : ' policy-row-cols--single'}`}>
         <div className="policy-col">
           <span className="policy-col-head">Policy / Action in place?</span>
           <InlineRadio
             name={area.field}
-            value={data[area.field]}
-            onChange={val => update({ [area.field]: val })}
+            value={policyValue}
+            onChange={handlePolicyChange}
             options={YES_NO_IP}
           />
         </div>
-        <div className="policy-col">
-          <span className="policy-col-head">Publicly available?</span>
-          <InlineRadio
-            name={publicField}
-            value={data[publicField]}
-            onChange={val => update({ [publicField]: val })}
-            options={YES_NO}
-          />
-        </div>
-        <div className="policy-col">
-          <span className="policy-col-head">Has quantitative targets?</span>
-          <InlineRadio
-            name={targetsField}
-            value={data[targetsField]}
-            onChange={val => update({ [targetsField]: val })}
-            options={YES_NO}
-          />
-        </div>
+        {hasPolicy && (
+          <>
+            <div className="policy-col">
+              <span className="policy-col-head">Publicly available?</span>
+              <InlineRadio
+                name={publicField}
+                value={data[publicField]}
+                onChange={val => update({ [publicField]: val })}
+                options={YES_NO}
+              />
+            </div>
+            <div className="policy-col">
+              <span className="policy-col-head">Has quantitative targets?</span>
+              <InlineRadio
+                name={targetsField}
+                value={data[targetsField]}
+                onChange={val => update({ [targetsField]: val })}
+                options={YES_NO}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

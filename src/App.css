@@ -73,6 +73,20 @@
   transition: width 0.4s ease;
 }
 
+.btn-cloud {
+  padding: 7px 14px;
+  background: #fff;
+  color: var(--slate-600);
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn-cloud:hover { background: var(--slate-50); border-color: var(--slate-300); color: var(--slate-800); }
+
 .btn-export {
   padding: 7px 16px;
   background: var(--green-600);
@@ -213,6 +227,37 @@
   border-top: 1px solid var(--slate-100);
   margin-top: 8px;
 }
+
+.btn-demo {
+  width: 100%;
+  padding: 8px;
+  background: var(--green-50);
+  border: 1.5px solid var(--green-200);
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green-700);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  margin-bottom: 8px;
+}
+
+.btn-demo:hover { background: var(--green-100); border-color: var(--green-400); }
+
+.btn-demo-confirm {
+  flex: 1;
+  padding: 6px;
+  background: var(--green-600);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-demo-confirm:hover { background: var(--green-700); }
 
 .btn-clear {
   width: 100%;

@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
+import demoData from '../data/demoData'
+import { createDemoImages } from '../data/demoImages'
 
 const FormContext = createContext(null)
 const STORAGE_KEY = 'vsme_esg_draft'
@@ -182,6 +184,16 @@ export function FormProvider({ children }) {
     setCurrentStep(0)
   }, [])
 
+  const loadDemo = useCallback(() => {
+    const images = createDemoImages()
+    const merged = { ...initialData, ...demoData, images }
+    // Images are too large for localStorage — save only text fields (matches autosave behaviour)
+    const { images: _imgs, ...saveable } = merged
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(saveable))
+    setData(merged)
+    setCurrentStep(0)
+  }, [])
+
   // Computed: which steps have at least one filled indicator field
   const completedSteps = useMemo(() =>
     STEP_INDICATOR_FIELDS
@@ -200,7 +212,7 @@ export function FormProvider({ children }) {
   return (
     <FormContext.Provider value={{
       data, update, currentStep, setCurrentStep,
-      completedSteps, clearDraft, lastSaved, completionPercent,
+      completedSteps, clearDraft, loadDemo, lastSaved, completionPercent,
     }}>
       {children}
     </FormContext.Provider>

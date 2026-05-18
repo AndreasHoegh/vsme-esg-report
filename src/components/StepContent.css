@@ -236,6 +236,11 @@
   }
 }
 
+.policy-row-cols--single {
+  grid-template-columns: 1fr;
+  max-width: 260px;
+}
+
 .policy-col {
   display: flex;
   flex-direction: column;

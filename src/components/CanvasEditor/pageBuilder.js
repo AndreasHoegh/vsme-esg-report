@@ -19,21 +19,22 @@ function rows(...pairs) {
 function yesNo(v) {
   if (v === 'yes') return 'Yes'
   if (v === 'no') return 'No'
-  if (v === 'in-progress') return 'In Progress'
+  if (v === 'in-progress' || v === 'in_progress') return 'In Progress'
   return v || ''
 }
 
 // Rough height estimator — used only for packing decisions, not for rendering
 function estimateBlockHeight(block) {
   switch (block.type) {
-    case 'section-band': return 62
-    case 'kpi-row':      return 72
-    case 'data-table':   return Math.max(block.rows?.length || 0, 1) * 16 + 14
-    case 'subtitle':     return 20
-    case 'text-block':   return Math.ceil((block.content?.length || 0) / 90) * 14 + 18
-    case 'image':        return 206
-    case 'spacer':       return block.height || 16
-    default:             return 20
+    case 'section-band':   return 66
+    case 'kpi-row':        return 84
+    case 'data-table':     return Math.max(block.rows?.length || 0, 1) * 18 + 14
+    case 'policy-matrix':  return (block.rows?.length || 0) * 22 + 10
+    case 'subtitle':       return 24
+    case 'text-block':     return Math.ceil((block.content?.length || 0) / 90) * 14 + 22
+    case 'image':          return 206
+    case 'spacer':         return block.height || 16
+    default:               return 20
   }
 }
 
@@ -152,7 +153,7 @@ function buildB2Page(data) {
     ['Governance',       'policyGovernance',   'policyGovernancePublic',  'policyGovernanceTargets'],
   ]
 
-  const withPolicy  = TOPICS.filter(([, f])    => data[f] === 'yes' || data[f] === 'in-progress').length
+  const withPolicy  = TOPICS.filter(([, f])    => data[f] === 'yes' || data[f] === 'in-progress' || data[f] === 'in_progress').length
   const publicCount = TOPICS.filter(([,, pf])  => data[pf] === 'yes').length
   const withTargets = TOPICS.filter(([,,, tf]) => data[tf] === 'yes').length
 
@@ -166,13 +167,11 @@ function buildB2Page(data) {
         { label: 'With Targets', value: withTargets, unit: 'topics' },
       ] },
       { type: 'subtitle', text: 'Policy Matrix' },
-      { type: 'data-table', rows: TOPICS.map(([label, f, pf, tf]) => ({
+      { type: 'policy-matrix', rows: TOPICS.map(([label, f, pf, tf]) => ({
         label,
-        value: [
-          yesNo(data[f]) || '—',
-          data[pf] === 'yes' ? 'Public' : '',
-          data[tf] === 'yes' ? 'Targets' : '',
-        ].filter(v => v && v !== '—').join('  ·  ') || '—',
+        status: data[f] || '',
+        isPublic: data[pf] === 'yes',
+        hasTargets: data[tf] === 'yes',
       })) },
     ],
   }
