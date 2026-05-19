@@ -35,9 +35,9 @@ export default function CloudSyncModal({ data, onLoad, onClose, hook, onSignIn, 
 
   async function handleLoad(id, withCanvas) {
     setLoadConfirm(null)
-    const reportData = await loadReport(id, withCanvas)
-    if (reportData) {
-      onLoad(reportData)
+    const result = await loadReport(id, withCanvas)
+    if (result) {
+      onLoad(result.formData, result.canvasDraft)
       onClose()
     }
   }

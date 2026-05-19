@@ -105,12 +105,14 @@ export function useCloudSync() {
         .single()
       if (err) throw err
       const { __canvasDraft, ...formData } = data.data || {}
-      if (withCanvas && __canvasDraft) {
-        try { localStorage.setItem('vsme_canvas_draft', JSON.stringify(__canvasDraft)) } catch {}
+      const canvasDraft = withCanvas ? (__canvasDraft || null) : null
+      // Write to localStorage so local "Continue editing" works across page reloads
+      if (canvasDraft) {
+        try { localStorage.setItem('vsme_canvas_draft', JSON.stringify(canvasDraft)) } catch {}
       } else {
         localStorage.removeItem('vsme_canvas_draft')
       }
-      return formData
+      return { formData, canvasDraft }
     } catch (e) {
       setError(e.message)
       return null

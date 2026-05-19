@@ -594,7 +594,7 @@ async function exportAllPagesToPDF(pages, allStates, config, companyName, report
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function CanvasEditor({ data, onClose }) {
+export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null }) {
   const canvasElRefs      = useRef([])
   const fabricInstances   = useRef([])
   const pageContainerRefs = useRef([])
@@ -610,8 +610,10 @@ export default function CanvasEditor({ data, onClose }) {
   const autoSaveTimerRef  = useRef(null)
   const handleSaveCanvasRef = useRef(null)
 
-  // Read any previously-saved canvas draft once at mount
+  // Prefer pendingCanvasDraft prop (passed directly from cloud load) over localStorage,
+  // so cross-device restores work without relying on localStorage being written first.
   const [savedDraft] = useState(() => {
+    if (pendingCanvasDraft) return pendingCanvasDraft
     try { return JSON.parse(localStorage.getItem(CANVAS_STORAGE_KEY) || 'null') } catch { return null }
   })
 
@@ -708,10 +710,12 @@ export default function CanvasEditor({ data, onClose }) {
     reportStyleMountedRef.current = false
     fontPairMountedRef.current = false
 
-    // Read localStorage fresh here — do not rely on the savedDraft closure captured at render time,
-    // which can be stale if the draft was written between render and this effect firing.
-    let localDraft = null
-    try { localDraft = JSON.parse(localStorage.getItem(CANVAS_STORAGE_KEY) || 'null') } catch {}
+    // pendingCanvasDraft (passed directly from cloud load) takes priority over localStorage,
+    // ensuring cross-device restores work even if the localStorage write didn't complete.
+    let localDraft = pendingCanvasDraft
+    if (!localDraft) {
+      try { localDraft = JSON.parse(localStorage.getItem(CANVAS_STORAGE_KEY) || 'null') } catch {}
+    }
 
     const instances = new Array(pages.length).fill(null)
     pages.forEach((page, i) => {

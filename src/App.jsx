@@ -45,6 +45,7 @@ function AppInner() {
   // Show welcome screen when there is no local draft (company name empty = nothing was started)
   const [showWelcome, setShowWelcome] = useState(() => !data.companyName)
   const [hasCanvasDraft, setHasCanvasDraft] = useState(() => !!localStorage.getItem('vsme_canvas_draft'))
+  const [pendingCanvasDraft, setPendingCanvasDraft] = useState(null)
   const userMenuRef = useRef(null)
   const cloudSync = useCloudSync()
   const { user, signOut } = useAuth()
@@ -70,10 +71,16 @@ function AppInner() {
     prevUserRef.current = user
   }, [user]) // eslint-disable-line
 
-  function handleCloudLoad(reportData) {
+  function handleCloudLoad(reportData, canvasDraft = null) {
     update(reportData)
     setCurrentStep(0)
-    setHasCanvasDraft(!!localStorage.getItem('vsme_canvas_draft'))
+    if (canvasDraft) {
+      setPendingCanvasDraft(canvasDraft)
+      setHasCanvasDraft(true)
+    } else {
+      setPendingCanvasDraft(null)
+      setHasCanvasDraft(!!localStorage.getItem('vsme_canvas_draft'))
+    }
   }
 
   const StepComponent = STEPS[currentStep].component
@@ -89,8 +96,9 @@ function AppInner() {
   }
 
   if (showEditor) {
-    return <CanvasEditor data={data} onClose={() => {
+    return <CanvasEditor data={data} pendingCanvasDraft={pendingCanvasDraft} onClose={() => {
       setShowEditor(false)
+      setPendingCanvasDraft(null)
       setHasCanvasDraft(!!localStorage.getItem('vsme_canvas_draft'))
     }} />
   }
@@ -134,7 +142,7 @@ function AppInner() {
         {showCloud && (
           <CloudSyncModal
             data={data}
-            onLoad={reportData => { handleCloudLoad(reportData); setShowWelcome(false) }}
+            onLoad={(reportData, canvasDraft) => { handleCloudLoad(reportData, canvasDraft); setShowWelcome(false) }}
             onClose={() => setShowCloud(false)}
             hook={cloudSync}
             initialTab="load"
