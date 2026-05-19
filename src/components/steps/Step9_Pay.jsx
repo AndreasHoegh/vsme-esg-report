@@ -16,7 +16,7 @@ export default function Step9_Pay() {
   const fatalities = parseFloat(data.workRelatedFatalities) || 0
   const fatalitiesIll = parseFloat(data.fatalitiesFromIllHealth) || 0
 
-  // VSME frequency rate formula: (accidents × 200,000) / (employees × 2,000)
+  // VSME frequency rate formula: (accidents × 200,000) / (employees × 2,000) TEST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   // = accidents × 100 / employees  → injuries per 200,000 hours worked
   const hoursWorked = employees * 2000
   const frequencyRate = injuries > 0 && employees > 0
