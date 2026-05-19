@@ -121,6 +121,23 @@ export function useCloudSync() {
     }
   }, [])
 
+  const loadLatestCanvasDraft = useCallback(async () => {
+    try {
+      const owner = await getOwnerFilter()
+      const filter = Object.entries(owner)[0]
+      const { data, error: err } = await supabase
+        .from('reports')
+        .select('data')
+        .eq(filter[0], filter[1])
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single()
+      if (err || !data) return null
+      const { __canvasDraft } = data.data || {}
+      return __canvasDraft || null
+    } catch { return null }
+  }, [])
+
   const deleteSave = useCallback(async (id) => {
     const owner = await getOwnerFilter()
     const filter = Object.entries(owner)[0]
@@ -132,5 +149,5 @@ export function useCloudSync() {
     if (!err) setSaves(prev => prev.filter(s => s.id !== id))
   }, [])
 
-  return { saveReport, updateReport, listSaves, loadReport, deleteSave, saving, loading, saves, error }
+  return { saveReport, updateReport, listSaves, loadReport, loadLatestCanvasDraft, deleteSave, saving, loading, saves, error }
 }

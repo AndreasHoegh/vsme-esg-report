@@ -71,6 +71,21 @@ function AppInner() {
     prevUserRef.current = user
   }, [user]) // eslint-disable-line
 
+  // When the user signs in with no local canvas draft, silently pull the canvas draft
+  // from their most recent cloud save so "Continue editing" works immediately on any device.
+  const didAutoLoadCanvasRef = useRef(false)
+  useEffect(() => {
+    if (!user || hasCanvasDraft || didAutoLoadCanvasRef.current) return
+    didAutoLoadCanvasRef.current = true
+    cloudSync.loadLatestCanvasDraft().then(draft => {
+      if (draft) {
+        try { localStorage.setItem('vsme_canvas_draft', JSON.stringify(draft)) } catch {}
+        setPendingCanvasDraft(draft)
+        setHasCanvasDraft(true)
+      }
+    })
+  }, [user]) // eslint-disable-line
+
   function handleCloudLoad(reportData, canvasDraft = null) {
     update(reportData)
     setCurrentStep(0)
