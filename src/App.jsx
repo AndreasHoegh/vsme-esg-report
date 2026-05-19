@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { FormProvider, useForm } from './context/FormContext'
 import Step1_GeneralInfo from './components/steps/Step1_GeneralInfo'
 import Step2_Policies from './components/steps/Step2_Policies'
@@ -13,7 +13,9 @@ import Step10_Social from './components/steps/Step10_Social'
 import Step11_Governance from './components/steps/Step11_Governance'
 import CanvasEditor from './components/CanvasEditor/CanvasEditor'
 import CloudSyncModal from './components/CloudSyncModal'
+import AuthModal from './components/AuthModal'
 import { useCloudSync } from './hooks/useCloudSync'
+import { useAuth } from './hooks/useAuth'
 import './App.css'
 
 const STEPS = [
@@ -37,7 +39,21 @@ function AppInner() {
   const [showDemoConfirm, setShowDemoConfirm] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCloud, setShowCloud] = useState(false)
+  const [showAuth, setShowAuth] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const userMenuRef = useRef(null)
   const cloudSync = useCloudSync()
+  const { user, signOut } = useAuth()
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setShowUserMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   function handleCloudLoad(reportData) {
     update(reportData)
@@ -93,6 +109,32 @@ function AppInner() {
             <button className="btn-cloud" onClick={() => setShowCloud(true)} title="Cloud saves">
               ☁ Cloud
             </button>
+            {user ? (
+              <div className="user-menu-wrap" ref={userMenuRef}>
+                <button
+                  className="btn-avatar"
+                  onClick={() => setShowUserMenu(o => !o)}
+                  title={user.email}
+                >
+                  {user.email[0].toUpperCase()}
+                </button>
+                {showUserMenu && (
+                  <div className="user-menu">
+                    <div className="user-menu-email">{user.email}</div>
+                    <button className="user-menu-item" onClick={() => { setShowCloud(true); setShowUserMenu(false) }}>
+                      ☁ Cloud saves
+                    </button>
+                    <button className="user-menu-item user-menu-item--danger" onClick={() => { signOut(); setShowUserMenu(false) }}>
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button className="btn-signin-top" onClick={() => setShowAuth(true)}>
+                Sign in
+              </button>
+            )}
             <button className="btn-export" onClick={() => setShowEditor(true)}>
               📄 Export PDF
             </button>
@@ -192,8 +234,10 @@ function AppInner() {
           onLoad={handleCloudLoad}
           onClose={() => setShowCloud(false)}
           hook={cloudSync}
+          onSignIn={() => { setShowCloud(false); setShowAuth(true) }}
         />
       )}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
     </div>
   )
 }

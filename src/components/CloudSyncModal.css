@@ -338,3 +338,102 @@
   transition: background 0.12s;
 }
 .csm-btn-danger:hover { background: #b91c1c; }
+
+/* Auth bar */
+.csm-auth-bar {
+  background: var(--slate-50);
+  border-bottom: 1px solid var(--slate-100);
+  font-size: 12px;
+}
+
+/* Signed-in state */
+.csm-auth-signed-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px;
+}
+
+.csm-auth-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--slate-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.csm-auth-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green-500);
+  flex-shrink: 0;
+}
+
+.csm-btn-signout {
+  padding: 3px 10px;
+  background: none;
+  border: 1px solid var(--slate-200);
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--slate-500);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+}
+.csm-btn-signout:hover { background: var(--slate-100); border-color: var(--slate-300); }
+
+/* Anonymous / prompt to sign in */
+.csm-auth-anonymous {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+}
+
+.csm-auth-anon-label {
+  color: var(--slate-400);
+  font-size: 11px;
+}
+
+.csm-btn-signin {
+  padding: 4px 12px;
+  background: var(--green-600);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.csm-btn-signin:hover { background: var(--green-700); }
+
+.csm-auth-error {
+  font-size: 12px;
+  color: #dc2626;
+  margin: 0;
+}
+
+.csm-signin-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.csm-signin-prompt p {
+  font-size: 14px;
+  color: var(--slate-500);
+  margin: 0;
+}

@@ -1,6 +1,12 @@
 import { useState, useCallback } from 'react'
 import { supabase, getDeviceId } from '../lib/supabase'
 
+async function getOwnerFilter() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session?.user?.id) return { user_id: session.user.id }
+  return { device_id: getDeviceId() }
+}
+
 export function useCloudSync() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -11,13 +17,13 @@ export function useCloudSync() {
     setSaving(true)
     setError(null)
     try {
-      const { images: _images, ...saveable } = data
+      const owner = await getOwnerFilter()
       const { error: err } = await supabase
         .from('reports')
         .insert({
-          device_id: getDeviceId(),
+          ...owner,
           name: name || data.companyName || 'ESG Report',
-          data: saveable,
+          data,
         })
       if (err) throw err
       return true
@@ -33,12 +39,13 @@ export function useCloudSync() {
     setSaving(true)
     setError(null)
     try {
-      const { images: _images, ...saveable } = data
+      const owner = await getOwnerFilter()
+      const filter = Object.entries(owner)[0]
       const { error: err } = await supabase
         .from('reports')
-        .update({ name: name || data.companyName || 'ESG Report', data: saveable, updated_at: new Date().toISOString() })
+        .update({ name: name || data.companyName || 'ESG Report', data, updated_at: new Date().toISOString() })
         .eq('id', id)
-        .eq('device_id', getDeviceId())
+        .eq(filter[0], filter[1])
       if (err) throw err
       return true
     } catch (e) {
@@ -53,10 +60,12 @@ export function useCloudSync() {
     setLoading(true)
     setError(null)
     try {
+      const owner = await getOwnerFilter()
+      const filter = Object.entries(owner)[0]
       const { data, error: err } = await supabase
         .from('reports')
         .select('id, name, created_at, updated_at')
-        .eq('device_id', getDeviceId())
+        .eq(filter[0], filter[1])
         .order('updated_at', { ascending: false })
         .limit(20)
       if (err) throw err
@@ -72,11 +81,13 @@ export function useCloudSync() {
     setLoading(true)
     setError(null)
     try {
+      const owner = await getOwnerFilter()
+      const filter = Object.entries(owner)[0]
       const { data, error: err } = await supabase
         .from('reports')
         .select('data')
         .eq('id', id)
-        .eq('device_id', getDeviceId())
+        .eq(filter[0], filter[1])
         .single()
       if (err) throw err
       return data.data
@@ -89,11 +100,13 @@ export function useCloudSync() {
   }, [])
 
   const deleteSave = useCallback(async (id) => {
+    const owner = await getOwnerFilter()
+    const filter = Object.entries(owner)[0]
     const { error: err } = await supabase
       .from('reports')
       .delete()
       .eq('id', id)
-      .eq('device_id', getDeviceId())
+      .eq(filter[0], filter[1])
     if (!err) setSaves(prev => prev.filter(s => s.id !== id))
   }, [])
 
