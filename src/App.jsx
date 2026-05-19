@@ -39,8 +39,12 @@ function AppInner() {
   const [showDemoConfirm, setShowDemoConfirm] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCloud, setShowCloud] = useState(false)
+  const [showCloudTab, setShowCloudTab] = useState('save')
   const [showAuth, setShowAuth] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  // Show welcome screen when there is no local draft (company name empty = nothing was started)
+  const [showWelcome, setShowWelcome] = useState(() => !data.companyName)
+  const [hasCanvasDraft, setHasCanvasDraft] = useState(() => !!localStorage.getItem('vsme_canvas_draft'))
   const userMenuRef = useRef(null)
   const cloudSync = useCloudSync()
   const { user, signOut } = useAuth()
@@ -55,9 +59,21 @@ function AppInner() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
+  // When user signs in while auth was opened from the welcome cloud-load flow, show cloud modal
+  const prevUserRef = useRef(user)
+  useEffect(() => {
+    if (!prevUserRef.current && user && showWelcome) {
+      setShowCloudTab('load')
+      setShowCloud(true)
+      setShowAuth(false)
+    }
+    prevUserRef.current = user
+  }, [user]) // eslint-disable-line
+
   function handleCloudLoad(reportData) {
     update(reportData)
     setCurrentStep(0)
+    setHasCanvasDraft(!!localStorage.getItem('vsme_canvas_draft'))
   }
 
   const StepComponent = STEPS[currentStep].component
@@ -73,7 +89,60 @@ function AppInner() {
   }
 
   if (showEditor) {
-    return <CanvasEditor data={data} onClose={() => setShowEditor(false)} />
+    return <CanvasEditor data={data} onClose={() => {
+      setShowEditor(false)
+      setHasCanvasDraft(!!localStorage.getItem('vsme_canvas_draft'))
+    }} />
+  }
+
+  if (showWelcome) {
+    return (
+      <div className="welcome-screen">
+        <div className="welcome-card">
+          <div className="welcome-icon">🌱</div>
+          <h1 className="welcome-title">VSME ESG Builder</h1>
+          <p className="welcome-sub">Basic Module (B1–B11)</p>
+          <div className="welcome-actions">
+            <button
+              className="welcome-btn welcome-btn--primary"
+              onClick={() => setShowWelcome(false)}
+            >
+              Start new report
+            </button>
+            <button
+              className="welcome-btn welcome-btn--cloud"
+              onClick={() => {
+                setShowCloudTab('load')
+                if (user) {
+                  setShowCloud(true)
+                } else {
+                  setShowAuth(true)
+                }
+              }}
+            >
+              ☁ Load saved report
+            </button>
+            <button
+              className="welcome-btn welcome-btn--demo"
+              onClick={() => { loadDemo(); setShowWelcome(false) }}
+            >
+              Load example data
+            </button>
+          </div>
+        </div>
+        {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+        {showCloud && (
+          <CloudSyncModal
+            data={data}
+            onLoad={reportData => { handleCloudLoad(reportData); setShowWelcome(false) }}
+            onClose={() => setShowCloud(false)}
+            hook={cloudSync}
+            initialTab="load"
+            onSignIn={() => { setShowCloud(false); setShowAuth(true) }}
+          />
+        )}
+      </div>
+    )
   }
 
   return (
@@ -133,6 +202,11 @@ function AppInner() {
             ) : (
               <button className="btn-signin-top" onClick={() => setShowAuth(true)}>
                 Sign in
+              </button>
+            )}
+            {hasCanvasDraft && (
+              <button className="btn-continue-canvas" onClick={() => setShowEditor(true)} title="Continue editing your saved canvas layout">
+                ✏ Continue editing
               </button>
             )}
             <button className="btn-export" onClick={() => setShowEditor(true)}>
@@ -220,7 +294,7 @@ function AppInner() {
                 </button>
               ) : (
                 <button className="btn-export-lg" onClick={() => setShowEditor(true)}>
-                  📄 Export Full Report
+                  {hasCanvasDraft ? '✏ Continue editing & Export' : '📄 Open Report Editor'}
                 </button>
               )}
             </div>
@@ -234,6 +308,7 @@ function AppInner() {
           onLoad={handleCloudLoad}
           onClose={() => setShowCloud(false)}
           hook={cloudSync}
+          initialTab={showCloudTab}
           onSignIn={() => { setShowCloud(false); setShowAuth(true) }}
         />
       )}

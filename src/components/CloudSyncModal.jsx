@@ -8,10 +8,10 @@ function formatDate(iso) {
     ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 }
 
-export default function CloudSyncModal({ data, onLoad, onClose, hook, onSignIn }) {
+export default function CloudSyncModal({ data, onLoad, onClose, hook, onSignIn, initialTab = 'save' }) {
   const { saveReport, listSaves, loadReport, deleteSave, saving, loading, saves, error } = hook
   const { user } = useAuth()
-  const [tab, setTab] = useState('save')
+  const [tab, setTab] = useState(initialTab)
   const [saveName, setSaveName] = useState(data.companyName || '')
   const [saveOk, setSaveOk] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
@@ -33,9 +33,9 @@ export default function CloudSyncModal({ data, onLoad, onClose, hook, onSignIn }
     }
   }
 
-  async function handleLoad(id) {
+  async function handleLoad(id, withCanvas) {
     setLoadConfirm(null)
-    const reportData = await loadReport(id)
+    const reportData = await loadReport(id, withCanvas)
     if (reportData) {
       onLoad(reportData)
       onClose()
@@ -89,7 +89,7 @@ export default function CloudSyncModal({ data, onLoad, onClose, hook, onSignIn }
                 </div>
               ) : (
               <>
-              <p className="csm-hint">Save a snapshot of your current form data. It will be available on any device when signed in.</p>
+              <p className="csm-hint">Save a snapshot of your current form data and canvas layout. It will be available on any device when signed in.</p>
               <label className="csm-label">Save name</label>
               <input
                 className="csm-input"
@@ -121,15 +121,20 @@ export default function CloudSyncModal({ data, onLoad, onClose, hook, onSignIn }
                 <div className="csm-load-warning">
                   <div className="csm-load-warning-icon">⚠</div>
                   <div className="csm-load-warning-text">
-                    <strong>Unsaved changes will be lost</strong>
-                    <p>Loading <em>"{loadConfirm.name}"</em> will replace your current form data. Make sure you've saved your current work first.</p>
+                    <strong>Load "{loadConfirm.name}"?</strong>
+                    <p>Choose how to open this report. Current unsaved changes will be lost.</p>
+                  </div>
+                  <div className="csm-load-mode-btns">
+                    <button className="csm-btn-load-canvas" onClick={() => handleLoad(loadConfirm.id, true)} disabled={loading}>
+                      {loading ? 'Loading…' : '🎨 With saved canvas layout'}
+                    </button>
+                    <button className="csm-btn-load-fresh" onClick={() => handleLoad(loadConfirm.id, false)} disabled={loading}>
+                      {loading ? 'Loading…' : '✨ Start fresh (regenerate)'}
+                    </button>
                   </div>
                   <div className="csm-load-warning-actions">
                     <button className="csm-btn-save-first" onClick={() => { setTab('save'); setLoadConfirm(null) }}>
                       Save first
-                    </button>
-                    <button className="csm-btn-load-confirm" onClick={() => handleLoad(loadConfirm.id)} disabled={loading}>
-                      {loading ? 'Loading…' : 'Load anyway'}
                     </button>
                     <button className="csm-btn-ghost" onClick={() => setLoadConfirm(null)}>Cancel</button>
                   </div>

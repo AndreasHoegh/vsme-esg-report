@@ -13,17 +13,24 @@ export function useCloudSync() {
   const [saves, setSaves] = useState([])
   const [error, setError] = useState(null)
 
-  const saveReport = useCallback(async (data, name) => {
+  const saveReport = useCallback(async (data, name, includeCanvas = true) => {
     setSaving(true)
     setError(null)
     try {
       const owner = await getOwnerFilter()
+      const payload = { ...data }
+      if (includeCanvas) {
+        try {
+          const draft = localStorage.getItem('vsme_canvas_draft')
+          if (draft) payload.__canvasDraft = JSON.parse(draft)
+        } catch {}
+      }
       const { error: err } = await supabase
         .from('reports')
         .insert({
           ...owner,
           name: name || data.companyName || 'ESG Report',
-          data,
+          data: payload,
         })
       if (err) throw err
       return true
@@ -35,15 +42,22 @@ export function useCloudSync() {
     }
   }, [])
 
-  const updateReport = useCallback(async (id, data, name) => {
+  const updateReport = useCallback(async (id, data, name, includeCanvas = true) => {
     setSaving(true)
     setError(null)
     try {
       const owner = await getOwnerFilter()
       const filter = Object.entries(owner)[0]
+      const payload = { ...data }
+      if (includeCanvas) {
+        try {
+          const draft = localStorage.getItem('vsme_canvas_draft')
+          if (draft) payload.__canvasDraft = JSON.parse(draft)
+        } catch {}
+      }
       const { error: err } = await supabase
         .from('reports')
-        .update({ name: name || data.companyName || 'ESG Report', data, updated_at: new Date().toISOString() })
+        .update({ name: name || data.companyName || 'ESG Report', data: payload, updated_at: new Date().toISOString() })
         .eq('id', id)
         .eq(filter[0], filter[1])
       if (err) throw err
@@ -77,7 +91,7 @@ export function useCloudSync() {
     }
   }, [])
 
-  const loadReport = useCallback(async (id) => {
+  const loadReport = useCallback(async (id, withCanvas = true) => {
     setLoading(true)
     setError(null)
     try {
@@ -90,7 +104,13 @@ export function useCloudSync() {
         .eq(filter[0], filter[1])
         .single()
       if (err) throw err
-      return data.data
+      const { __canvasDraft, ...formData } = data.data || {}
+      if (withCanvas && __canvasDraft) {
+        try { localStorage.setItem('vsme_canvas_draft', JSON.stringify(__canvasDraft)) } catch {}
+      } else {
+        localStorage.removeItem('vsme_canvas_draft')
+      }
+      return formData
     } catch (e) {
       setError(e.message)
       return null

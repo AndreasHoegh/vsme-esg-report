@@ -5,6 +5,7 @@ import { buildAllPages } from './pageBuilder'
 import './CanvasEditor.css'
 
 const CW = 595
+const CANVAS_STORAGE_KEY = 'vsme_canvas_draft'
 const CH = 842
 const ML = 22
 const CONTENT_W = CW - ML * 2
@@ -605,12 +606,20 @@ export default function CanvasEditor({ data, onClose }) {
   const updateSelColorRef = useRef(null)
   const userObjectsRef    = useRef({}) // per-page cache of user-added objects, always up to date
   const nudgeTimerRef     = useRef(null)
+  const prevFontPairRef   = useRef(null) // tracks previous font pair for in-place font swapping
+  const autoSaveTimerRef  = useRef(null)
+  const handleSaveCanvasRef = useRef(null)
+
+  // Read any previously-saved canvas draft once at mount
+  const [savedDraft] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CANVAS_STORAGE_KEY) || 'null') } catch { return null }
+  })
 
   const [activeIdx, _setActiveIdx]          = useState(0)
-  const [themeId, setThemeId]               = useState('navy')
-  const [customColor, setCustomColor]       = useState('#112a57')
-  const [reportStyleId, setReportStyleId]   = useState('modern')
-  const [fontPairId, setFontPairId]         = useState('editorial')
+  const [themeId, setThemeId]               = useState(savedDraft?.settings?.themeId      ?? 'navy')
+  const [customColor, setCustomColor]       = useState(savedDraft?.settings?.customColor   ?? '#112a57')
+  const [reportStyleId, setReportStyleId]   = useState(savedDraft?.settings?.reportStyleId ?? 'modern')
+  const [fontPairId, setFontPairId]         = useState(savedDraft?.settings?.fontPairId    ?? 'editorial')
   const [hasSelection, setHasSelection]     = useState(false)
   const [selectionColor, setSelectionColor] = useState('#112a57')
   const [selType, setSelType]               = useState(null)   // 'text'|'image'|'rect'|'circle'|'other'|null
@@ -624,10 +633,14 @@ export default function CanvasEditor({ data, onClose }) {
   const [canRedo, setCanRedo]               = useState(false)
   const [, forceUpdate]                     = useState(0)
   const [dragTargetPage, setDragTargetPage]         = useState(null)
-  const [deletedPageIndices, setDeletedPageIndices] = useState(() => new Set())
-  const [customPageCount, setCustomPageCount]       = useState(0)
+  const [deletedPageIndices, setDeletedPageIndices] = useState(() =>
+    savedDraft?.settings?.deletedPages?.length ? new Set(savedDraft.settings.deletedPages) : new Set()
+  )
+  const [customPageCount, setCustomPageCount] = useState(savedDraft?.settings?.customPageCount ?? 0)
+  const [canvasSaveTime, setCanvasSaveTime]   = useState(null)
 
-  const deletedPageIndicesRef = useRef(new Set())
+  const _initDeleted = savedDraft?.settings?.deletedPages?.length ? new Set(savedDraft.settings.deletedPages) : new Set()
+  const deletedPageIndicesRef = useRef(_initDeleted)
   const dragTargetRef         = useRef(null)   // page index the object is heading toward
   const dragSourceRef    = useRef(null)   // { fromIdx, obj }
   const crossPageOpsRef  = useRef([])    // undo stack for cross-page transfers
@@ -663,6 +676,9 @@ export default function CanvasEditor({ data, onClose }) {
     userObjectsRef.current[idx] = json.objects.filter(o => o.data?.userAdded)
     // New action on this page invalidates any pending cross-page redos involving it
     crossPageRedoRef.current = crossPageRedoRef.current.filter(op => op.fromIdx !== idx && op.toIdx !== idx)
+    // Debounced auto-save to localStorage after any canvas change (2s idle)
+    clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(() => handleSaveCanvasRef.current?.(), 2000)
   }, [])
   pushHistoryRef.current = pushHistoryForCanvas
 
@@ -687,6 +703,16 @@ export default function CanvasEditor({ data, onClose }) {
 
   // ── Init canvases ──
   useEffect(() => {
+    // Reset mount guards every time the canvas editor mounts (handles strict-mode double-invoke
+    // and normal close→reopen cycles), so style/font effects never call rerenderAll() on mount.
+    reportStyleMountedRef.current = false
+    fontPairMountedRef.current = false
+
+    // Read localStorage fresh here — do not rely on the savedDraft closure captured at render time,
+    // which can be stale if the draft was written between render and this effect firing.
+    let localDraft = null
+    try { localDraft = JSON.parse(localStorage.getItem(CANVAS_STORAGE_KEY) || 'null') } catch {}
+
     const instances = new Array(pages.length).fill(null)
     pages.forEach((page, i) => {
       const el = canvasElRefs.current[i]; if (!el) return
@@ -753,7 +779,16 @@ export default function CanvasEditor({ data, onClose }) {
       })
       canvas.on('text:changed', () => pushHistoryRef.current(i, canvas))
       canvas.on('mouse:dblclick', (e) => { const obj = e.target; if (obj?.type === 'textbox' && obj.editable !== false) { canvas.setActiveObject(obj); obj.enterEditing(); canvas.renderAll() } })
-      renderPage(canvas, page, configRef.current, i+1, data.companyName).then(() => { if (!historyRef.current[i]) historyRef.current[i] = { stack: [canvas.toJSON(['data'])], idx: 0 } })
+      const savedState = localDraft?.states?.[i]
+      if (savedState) {
+        canvas.loadFromJSON(savedState, () => {
+          recolorCanvas(canvas, configRef.current.theme)
+          canvas.renderAll()
+          historyRef.current[i] = { stack: [canvas.toJSON(['data'])], idx: 0 }
+        })
+      } else {
+        renderPage(canvas, page, configRef.current, i+1, data.companyName).then(() => { if (!historyRef.current[i]) historyRef.current[i] = { stack: [canvas.toJSON(['data'])], idx: 0 } })
+      }
     })
     fabricInstances.current = instances
     return () => { instances.forEach(c => c?.dispose()); fabricInstances.current = [] }
@@ -796,9 +831,25 @@ export default function CanvasEditor({ data, onClose }) {
   const reportStyleMountedRef = useRef(false)
   useEffect(() => { if (!reportStyleMountedRef.current) { reportStyleMountedRef.current = true; return }; rerenderAll() }, [reportStyleId]) // eslint-disable-line
 
-  // Font pair change — re-render ALL pages
+  // Font pair change — swap fonts in-place so user edits are preserved
   const fontPairMountedRef = useRef(false)
-  useEffect(() => { if (!fontPairMountedRef.current) { fontPairMountedRef.current = true; return }; rerenderAll() }, [fontPairId]) // eslint-disable-line
+  useEffect(() => {
+    if (!fontPairMountedRef.current) { fontPairMountedRef.current = true; prevFontPairRef.current = fontPair; return }
+    const oldPair = prevFontPairRef.current
+    prevFontPairRef.current = fontPair
+    fabricInstances.current.forEach(c => {
+      if (!c) return
+      c.getObjects().forEach(obj => {
+        if (obj.data?.userAdded) return
+        if (obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text') {
+          if (oldPair && obj.fontFamily === oldPair.heading) obj.set('fontFamily', fontPair.heading)
+          else if (oldPair && obj.fontFamily === oldPair.body) obj.set('fontFamily', fontPair.body)
+          obj.dirty = true
+        }
+      })
+      c.requestRenderAll()
+    })
+  }, [fontPairId]) // eslint-disable-line
 
   // New custom blank page — initialize its Fabric canvas after DOM renders it
   useEffect(() => {
@@ -1096,6 +1147,21 @@ export default function CanvasEditor({ data, onClose }) {
   const handleAddBlankPage = useCallback(() => { setCustomPageCount(c => c + 1) }, [])
 
   const handlePageJump = useCallback((idx) => { setActiveIdx(idx); pageContainerRefs.current[idx]?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [setActiveIdx])
+  const handleSaveCanvas = useCallback(() => {
+    const states = {}
+    fabricInstances.current.forEach((canvas, i) => { if (canvas) { try { states[i] = canvas.toJSON(['data']) } catch {} } })
+    const draft = {
+      states,
+      settings: { themeId, reportStyleId, fontPairId, customColor, customPageCount,
+        deletedPages: [...deletedPageIndicesRef.current] },
+    }
+    try {
+      localStorage.setItem(CANVAS_STORAGE_KEY, JSON.stringify(draft))
+      setCanvasSaveTime(new Date())
+    } catch { alert('Gem mislykkedes — lagerpladsen er fuld.') }
+  }, [themeId, reportStyleId, fontPairId, customColor, customPageCount])
+  handleSaveCanvasRef.current = handleSaveCanvas
+
   const handleExport = useCallback(async () => {
     setIsExporting(true)
     try {
@@ -1150,7 +1216,7 @@ export default function CanvasEditor({ data, onClose }) {
 
       <header className="ce-toolbar">
         <div className="ce-toolbar-left">
-          <button className="ce-btn-back" onClick={onClose}>← Back</button>
+          <button className="ce-btn-back" onClick={() => { handleSaveCanvas(); onClose() }}>← Back</button>
           <span className="ce-divider" />
           <span className="ce-title">{data.companyName || 'Report'}</span>
         </div>
@@ -1233,6 +1299,9 @@ export default function CanvasEditor({ data, onClose }) {
                 className="ce-color-input-overlay" />
             </label>
           </div>
+          <button className="ce-btn-save" onClick={handleSaveCanvas} title="Save canvas draft now (also auto-saves 2s after changes)">
+            {canvasSaveTime ? `Saved ${canvasSaveTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Save draft'}
+          </button>
           <button className="ce-btn-export" style={{ background: theme.primary }} onClick={handleExport} disabled={isExporting}>
             {isExporting ? '⏳ Generating…' : '📄 Export PDF'}
           </button>

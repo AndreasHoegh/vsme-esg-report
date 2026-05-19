@@ -321,6 +321,43 @@
 .csm-btn-load-confirm:hover:not(:disabled) { background: #b45309; }
 .csm-btn-load-confirm:disabled { opacity: 0.6; cursor: default; }
 
+/* Load mode buttons */
+.csm-load-mode-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.csm-btn-load-canvas {
+  padding: 9px 16px;
+  background: var(--green-600);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, opacity 0.12s;
+}
+.csm-btn-load-canvas:hover:not(:disabled) { background: var(--green-700); }
+.csm-btn-load-canvas:disabled { opacity: 0.6; cursor: default; }
+
+.csm-btn-load-fresh {
+  padding: 9px 16px;
+  background: none;
+  color: var(--slate-700);
+  border: 1px solid var(--slate-300);
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, border-color 0.12s, opacity 0.12s;
+}
+.csm-btn-load-fresh:hover:not(:disabled) { background: var(--slate-100); border-color: var(--slate-400); }
+.csm-btn-load-fresh:disabled { opacity: 0.6; cursor: default; }
+
 .csm-save-row--pending {
   border-color: #fcd34d;
   background: #fffbeb;

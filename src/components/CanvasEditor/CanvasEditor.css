@@ -111,6 +111,20 @@
 .ce-theme-dot:hover { transform: scale(1.15); }
 .ce-theme-dot.active { border-color: #fff; transform: scale(1.15); }
 
+.ce-btn-save {
+  padding: 6px 14px;
+  background: none;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ce-btn-save:hover { background: #1e3a5f; color: #93c5fd; border-color: #3b82f6; }
+
 .ce-btn-export {
   padding: 7px 16px;
   color: #fff;
