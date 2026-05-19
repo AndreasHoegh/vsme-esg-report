@@ -1,25 +1,55 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 import { useForm } from '../../context/FormContext'
-import { FormField, Input, Select, RadioGroup, CalcField } from '../FormField'
+import { FormField, Select, RadioGroup, CalcField } from '../FormField'
 import RichEditor from '../RichEditor'
 import '../StepContent.css'
+import './WasteTypes.css'
+
+const WASTE_TYPE_OPTIONS = [
+  'Paper & Cardboard',
+  'Plastic',
+  'Metal / Scrap',
+  'Glass',
+  'Organic / Food Waste',
+  'Electronic Waste (e-waste)',
+  'Construction & Demolition',
+  'Textiles',
+  'Chemical / Liquid Waste',
+  'Medical / Clinical Waste',
+  'Rubber & Tyres',
+  'Other (specify)',
+]
 
 const WASTE_UNITS = ['tonnes', 'kg', 'cubic metres']
 const YES_NO = [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]
+
+function newEntry() {
+  return { id: crypto.randomUUID(), typeKey: '', customName: '', amount: '', recycled: '', hazardous: false }
+}
 
 export default function Step7_Workforce() {
   const { data, update } = useForm()
   const u = (f) => (v) => update({ [f]: v })
 
-  const total = parseFloat(data.totalWasteGenerated) || 0
-  const hazardous = parseFloat(data.wasteHazardous) || 0
-  const nonHazardous = parseFloat(data.wasteNonHazardous) || 0
-  const recycled = parseFloat(data.wasteRecycled) || 0
-  const recycledReuse = parseFloat(data.wasteRecycledForReuse) || 0
-  const landfill = parseFloat(data.wasteDisposedLandfill) || 0
+  const wasteTypes = data.wasteTypes || []
+  const wasteUnit = data.wasteUnit || 'tonnes'
 
-  const hazPct = total > 0 && hazardous > 0 ? ((hazardous / total) * 100).toFixed(1) : ''
-  const recycleRate = total > 0 && recycled > 0 ? ((recycled / total) * 100).toFixed(1) : ''
+  const updateEntry = useCallback((id, field, value) => {
+    update({
+      wasteTypes: (data.wasteTypes || []).map(e => e.id === id ? { ...e, [field]: value } : e)
+    })
+  }, [data.wasteTypes, update])
+
+  const addEntry = () => update({ wasteTypes: [...wasteTypes, newEntry()] })
+
+  const removeEntry = (id) => update({ wasteTypes: wasteTypes.filter(e => e.id !== id) })
+
+  // Computed totals from the list
+  const total = wasteTypes.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
+  const totalHazardous = wasteTypes.filter(e => e.hazardous).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
+  const totalRecycled = wasteTypes.reduce((s, e) => s + (parseFloat(e.recycled) || 0), 0)
+  const hazPct = total > 0 ? ((totalHazardous / total) * 100).toFixed(1) : ''
+  const recycleRate = total > 0 ? ((totalRecycled / total) * 100).toFixed(1) : ''
   const employees = parseFloat(data.employeeCount) || 0
   const intensity = total > 0 && employees > 0 ? (total / employees).toFixed(3) : ''
 
@@ -57,95 +87,132 @@ export default function Step7_Workforce() {
             <RichEditor
               value={data.circularEconomyDescription}
               onChange={u('circularEconomyDescription')}
-              placeholder="Describe circular design principles, recycled material use, take-back schemes, repair/refurbishment programmes, or any other circular economy initiatives…"
+              placeholder="Describe circular design principles, recycled material use, take-back schemes, repair/refurbishment programmes…"
             />
           </FormField>
         )}
 
         <FormField
           label="Material Flow Description (optional)"
-          tooltip="Describe significant material inputs and outputs — useful for identifying resource efficiency opportunities."
+          tooltip="Describe significant material inputs and outputs."
         >
           <RichEditor
             value={data.materialFlowDescription}
             onChange={u('materialFlowDescription')}
-            placeholder="Describe key raw materials used, recycled content %, products or by-products, and how materials leave the company (sold, recycled, disposed)…"
+            placeholder="Describe key raw materials used, recycled content %, products or by-products, and how materials leave the company…"
           />
         </FormField>
       </section>
 
-      {/* ── Waste ── */}
+      {/* ── Waste Types ── */}
       <section className="form-section">
-        <h3>Waste Generation</h3>
-        <div className="form-grid form-grid--2">
-          <FormField label="Unit" id="wasteUnit">
-            <Select id="wasteUnit" value={data.wasteUnit} onChange={u('wasteUnit')} options={WASTE_UNITS} />
-          </FormField>
-        </div>
-        <div className="form-grid form-grid--2">
-          <FormField
-            label="Total Waste Generated"
-            required
-            tooltip="All waste streams combined from all company activities during the reporting period."
-            id="totalWaste"
-          >
-            <Input id="totalWaste" type="number" min="0" step="0.001"
-              value={data.totalWasteGenerated} onChange={u('totalWasteGenerated')} unit={data.wasteUnit} />
-          </FormField>
-          <FormField
-            label="Hazardous Waste"
-            required
-            tooltip="Waste classified as hazardous under applicable national or EU law."
-            id="hazWaste"
-          >
-            <Input id="hazWaste" type="number" min="0" step="0.001"
-              value={data.wasteHazardous} onChange={u('wasteHazardous')} unit={data.wasteUnit} />
-          </FormField>
-        </div>
-        {hazPct && <CalcField label="Hazardous Waste Share" value={hazPct} unit="%" tooltip="Hazardous waste as a percentage of total waste." />}
-      </section>
-
-      <section className="form-section">
-        <h3>Waste Treatment</h3>
-        <p className="section-desc">Break down how waste is managed — required for VSME B7.</p>
-        <div className="form-grid form-grid--2">
-          <FormField
-            label="Waste Recycled / Recovered"
-            required
-            tooltip="Waste sent for recycling, composting, or energy recovery processes."
-            id="recycleWaste"
-          >
-            <Input id="recycleWaste" type="number" min="0" step="0.001"
-              value={data.wasteRecycled} onChange={u('wasteRecycled')} unit={data.wasteUnit} />
-          </FormField>
-          <FormField
-            label="Waste Prepared for Reuse"
-            tooltip="Waste processed and returned to use without reprocessing (e.g. refurbished goods, returned packaging)."
-            id="recycledReuseWaste"
-          >
-            <Input id="recycledReuseWaste" type="number" min="0" step="0.001"
-              value={data.wasteRecycledForReuse} onChange={u('wasteRecycledForReuse')} unit={data.wasteUnit} />
-          </FormField>
-          <FormField
-            label="Waste to Incineration (energy recovery)"
-            tooltip="Waste sent to incineration where the heat or electricity is recovered."
-            id="incinerateWaste"
-          >
-            <Input id="incinerateWaste" type="number" min="0" step="0.001"
-              value={data.wasteToIncineration} onChange={u('wasteToIncineration')} unit={data.wasteUnit} />
-          </FormField>
-          <FormField
-            label="Waste to Landfill"
-            tooltip="Waste disposed of in landfill or incineration without energy recovery."
-            id="landfillWaste"
-          >
-            <Input id="landfillWaste" type="number" min="0" step="0.001"
-              value={data.wasteDisposedLandfill} onChange={u('wasteDisposedLandfill')} unit={data.wasteUnit} />
+        <div className="wt-header">
+          <div>
+            <h3>Waste Generation</h3>
+            <p className="section-desc">Add each type of waste your company generates.</p>
+          </div>
+          <FormField label="Unit" id="wasteUnit" inline>
+            <Select id="wasteUnit" value={wasteUnit} onChange={u('wasteUnit')} options={WASTE_UNITS} />
           </FormField>
         </div>
 
-        {recycleRate && <CalcField label="Recycling Rate" value={recycleRate} unit="%" tooltip="Recycled/recovered waste as % of total waste." />}
-        {intensity && <CalcField label="Waste Intensity (per employee)" value={intensity} unit={`${data.wasteUnit}/employee`} tooltip="Total waste per FTE." />}
+        {wasteTypes.length === 0 && (
+          <div className="wt-empty">
+            <span className="wt-empty-icon">🗑</span>
+            <p>No waste types added yet. Click the button below to add your first waste stream.</p>
+          </div>
+        )}
+
+        {wasteTypes.map((entry, i) => {
+          const isOther = entry.typeKey === 'Other (specify)'
+          const displayName = isOther ? entry.customName || 'Other' : entry.typeKey || `Waste stream ${i + 1}`
+          return (
+            <div key={entry.id} className={`wt-card${entry.hazardous ? ' wt-card--hazardous' : ''}`}>
+              <div className="wt-card-header">
+                <span className="wt-card-number">{i + 1}</span>
+                <span className="wt-card-name">{displayName}</span>
+                {entry.hazardous && <span className="wt-hazardous-badge">⚠ Hazardous</span>}
+                <button className="wt-btn-remove" onClick={() => removeEntry(entry.id)} title="Remove">✕</button>
+              </div>
+
+              <div className="wt-card-body">
+                <div className="wt-field-group">
+                  <label className="wt-label">Waste type</label>
+                  <select
+                    className="wt-select"
+                    value={entry.typeKey}
+                    onChange={e => updateEntry(entry.id, 'typeKey', e.target.value)}
+                  >
+                    <option value="">Select type…</option>
+                    {WASTE_TYPE_OPTIONS.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                  {isOther && (
+                    <input
+                      className="wt-input wt-input--name"
+                      type="text"
+                      placeholder="Enter waste type name…"
+                      value={entry.customName}
+                      onChange={e => updateEntry(entry.id, 'customName', e.target.value)}
+                    />
+                  )}
+                </div>
+
+                <div className="wt-amounts">
+                  <div className="wt-field-group">
+                    <label className="wt-label">Total amount ({wasteUnit})</label>
+                    <input
+                      className="wt-input"
+                      type="number"
+                      min="0"
+                      step="0.001"
+                      placeholder="0"
+                      value={entry.amount}
+                      onChange={e => updateEntry(entry.id, 'amount', e.target.value)}
+                    />
+                  </div>
+                  <div className="wt-field-group">
+                    <label className="wt-label">Amount recycled ({wasteUnit})</label>
+                    <input
+                      className="wt-input"
+                      type="number"
+                      min="0"
+                      step="0.001"
+                      placeholder="0"
+                      value={entry.recycled}
+                      onChange={e => updateEntry(entry.id, 'recycled', e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <label className="wt-checkbox-label">
+                  <input
+                    type="checkbox"
+                    className="wt-checkbox"
+                    checked={entry.hazardous}
+                    onChange={e => updateEntry(entry.id, 'hazardous', e.target.checked)}
+                  />
+                  <span>Hazardous waste</span>
+                </label>
+              </div>
+            </div>
+          )
+        })}
+
+        <button className="wt-btn-add" onClick={addEntry}>
+          + Add waste type
+        </button>
+
+        {/* Computed summary */}
+        {wasteTypes.length > 0 && total > 0 && (
+          <div className="wt-summary">
+            <CalcField label="Total Waste" value={total.toFixed(3)} unit={wasteUnit} tooltip="Sum of all waste streams." />
+            {hazPct && <CalcField label="Hazardous Waste Share" value={hazPct} unit="%" tooltip="Hazardous waste as % of total." />}
+            {recycleRate && <CalcField label="Recycling Rate" value={recycleRate} unit="%" tooltip="Recycled waste as % of total." />}
+            {intensity && <CalcField label="Intensity (per employee)" value={intensity} unit={`${wasteUnit}/employee`} tooltip="Total waste per FTE." />}
+          </div>
+        )}
       </section>
 
       <section className="form-section">

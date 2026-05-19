@@ -75,7 +75,7 @@ export function buildAllPages(data) {
     buildB1Page(data), buildB2Page(data), buildB3Page(data), buildB4Page(data),
     buildB5Page(data), buildB6Page(data), buildB7Page(data), buildB8Page(data),
     buildB9Page(data), buildB10Page(data), buildB11Page(data),
-  ]
+  ].filter(Boolean)
 
   const packedPages = packSections(sections)
 
@@ -101,7 +101,7 @@ function buildCoverPage(data) {
 }
 
 function buildTOCPage(pageMap = {}) {
-  return { title: 'Contents', badge: '', blocks: [{ type: 'toc', pageMap }] }
+  return { title: 'Contents', badge: '', blocks: [{ type: 'toc', pageMap, presentBadges: new Set(Object.keys(pageMap)) }] }
 }
 
 // B1 — General Information
@@ -140,6 +140,9 @@ function buildB1Page(data) {
 
 // B2 — Policies & Commitments
 function buildB2Page(data) {
+  const POLICY_FIELDS = ['policyClimate','policyPollution','policyWaterMarine','policyBiodiversity','policyCircular','policyOwnWorkforce','policyValueChain','policyCommunities','policyConsumers','policyGovernance']
+  if (!POLICY_FIELDS.some(f => data[f])) return null
+
   const TOPICS = [
     ['Climate Change',   'policyClimate',     'policyClimatePublic',     'policyClimateTargets'],
     ['Pollution',        'policyPollution',    'policyPollutionPublic',   'policyPollutionTargets'],
@@ -179,6 +182,8 @@ function buildB2Page(data) {
 
 // B3 — Energy & GHG Emissions
 function buildB3Page(data) {
+  if (!data.totalEnergyConsumption && !data.renewableEnergyConsumption && !data.scope1Emissions && !data.scope2Emissions && !data.scope3Emissions && !data.energyNarrative && !data.ghgNarrative) return null
+
   const total  = n(data.totalEnergyConsumption)
   const renew  = n(data.renewableEnergyConsumption)
   const renewPct = total > 0 ? ((renew / total) * 100).toFixed(1) : null
@@ -240,6 +245,9 @@ function buildB3Page(data) {
 
 // B4 — Pollution
 function buildB4Page(data) {
+  const hasData = data.hasPollutionReporting === 'yes' || data.hasPollutionReporting === 'in-progress' || data.hasPollutionReporting === 'in_progress' || data.pollutionDescription || data.pollutionNarrative
+  if (!hasData) return null
+
   return {
     title: 'B4 — Pollution', badge: 'B4',
     blocks: [
@@ -261,6 +269,9 @@ function buildB4Page(data) {
 
 // B5 — Biodiversity
 function buildB5Page(data) {
+  const hasData = data.hasBiodiversitySites === 'yes' || data.hasBiodiversitySites === 'in-progress' || data.hasBiodiversitySites === 'in_progress' || data.biodiversityDescription || data.landUseTotal || data.biodiversityNarrative
+  if (!hasData) return null
+
   return {
     title: 'B5 — Biodiversity', badge: 'B5',
     blocks: [
@@ -284,6 +295,8 @@ function buildB5Page(data) {
 
 // B6 — Water
 function buildB6Page(data) {
+  if (!data.totalWaterWithdrawal && !data.waterDischarge && !data.waterRecycled && !data.waterNarrative) return null
+
   const total    = n(data.totalWaterWithdrawal)
   const discharge = n(data.waterDischarge)
   const recycled = n(data.waterRecycled)
@@ -317,11 +330,23 @@ function buildB6Page(data) {
 
 // B7 — Resources & Circular Economy
 function buildB7Page(data) {
-  const total = n(data.totalWasteGenerated)
-  const haz   = n(data.wasteHazardous)
-  const rec   = n(data.wasteRecycled)
-  const recPct = total > 0 && rec > 0 ? ((rec / total) * 100).toFixed(1) : null
-  const wUnit  = data.wasteUnit || 'tonnes'
+  if ((!data.wasteTypes || data.wasteTypes.length === 0) && data.usesCircularEconomy !== 'yes' && !data.circularEconomyDescription && !data.wasteNarrative) return null
+
+  const wUnit      = data.wasteUnit || 'tonnes'
+  const wasteTypes = data.wasteTypes || []
+  const total      = wasteTypes.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
+  const totalHaz   = wasteTypes.filter(e => e.hazardous).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
+  const totalRec   = wasteTypes.reduce((s, e) => s + (parseFloat(e.recycled) || 0), 0)
+  const recPct     = total > 0 && totalRec > 0 ? ((totalRec / total) * 100).toFixed(1) : null
+  const hazPct     = total > 0 && totalHaz > 0 ? ((totalHaz / total) * 100).toFixed(1) : null
+
+  const wasteRows = wasteTypes.map(e => {
+    const name = e.typeKey === 'Other (specify)' ? (e.customName || 'Other') : (e.typeKey || 'Unknown')
+    const amt  = e.amount ? `${parseFloat(e.amount).toFixed(2)} ${wUnit}` : '—'
+    const rec  = e.recycled ? ` · recycled: ${parseFloat(e.recycled).toFixed(2)} ${wUnit}` : ''
+    const haz  = e.hazardous ? ' ⚠' : ''
+    return { label: name + haz, value: amt + rec }
+  })
 
   return {
     title: 'B7 — Waste & Circular', badge: 'B7',
@@ -335,19 +360,18 @@ function buildB7Page(data) {
         { type: 'text-block', content: strip(data.circularEconomyDescription) },
       ] : []),
 
-      { type: 'subtitle', text: 'Waste' },
-      { type: 'kpi-row', metrics: [
-        total && { label: 'Total Waste', value: total, unit: wUnit },
-        haz   && { label: 'Hazardous', value: haz, unit: wUnit },
-        total && haz && { label: 'Non-Hazardous', value: (total - haz).toFixed(2), unit: wUnit },
-        recPct && { label: 'Recycling Rate', value: recPct, unit: '%' },
-      ].filter(Boolean) },
-      { type: 'data-table', rows: rows(
-        ['Recycled / Recovered', data.wasteRecycled       ? `${data.wasteRecycled} ${wUnit}` : ''],
-        ['Prepared for Reuse',   data.wasteRecycledForReuse ? `${data.wasteRecycledForReuse} ${wUnit}` : ''],
-        ['Incineration',         data.wasteToIncineration ? `${data.wasteToIncineration} ${wUnit}` : ''],
-        ['Landfill Disposal',    data.wasteDisposedLandfill ? `${data.wasteDisposedLandfill} ${wUnit}` : ''],
-      )},
+      ...(wasteTypes.length > 0 ? [
+        { type: 'subtitle', text: 'Waste' },
+        { type: 'kpi-row', metrics: [
+          total   && { label: 'Total Waste',     value: total.toFixed(2),  unit: wUnit },
+          totalHaz && { label: 'Hazardous',       value: totalHaz.toFixed(2), unit: wUnit },
+          hazPct  && { label: 'Hazardous Share',  value: hazPct,            unit: '%' },
+          recPct  && { label: 'Recycling Rate',   value: recPct,            unit: '%' },
+        ].filter(Boolean) },
+        { type: 'subtitle', text: 'Waste by Type' },
+        { type: 'data-table', rows: wasteRows },
+      ] : []),
+
       ...(data.wasteNarrative ? [
         { type: 'subtitle', text: 'Waste Narrative' },
         { type: 'text-block', content: strip(data.wasteNarrative) },
@@ -358,6 +382,8 @@ function buildB7Page(data) {
 
 // B8 — Own Workforce
 function buildB8Page(data) {
+  if (!data.totalEmployees && !data.permanentEmployees && !data.maleEmployees && !data.femaleEmployees && !data.workforceNarrative) return null
+
   const total  = n(data.totalEmployees)
   const female = n(data.femaleEmployees)
   const perm   = n(data.permanentEmployees)
@@ -392,6 +418,8 @@ function buildB8Page(data) {
 
 // B9 — Health & Safety
 function buildB9Page(data) {
+  if (data.workRelatedInjuries === '' && data.workRelatedFatalities === '' && !data.sickLeaveDays && data.hasOHSManagementSystem !== 'yes' && !data.safetyNarrative) return null
+
   const inj = n(data.workRelatedInjuries)
   const emp = n(data.totalEmployees)
   // VSME frequency rate: (injuries × 200,000) / (employees × 2,000) = injuries × 100 / employees
@@ -424,6 +452,8 @@ function buildB9Page(data) {
 
 // B10 — Pay & Training
 function buildB10Page(data) {
+  if (!data.minimumWageCompliance && !data.avgTrainingHours && !data.collectiveBargainingCoverage && !data.maleAvgSalary && !data.femaleAvgSalary && !data.payNarrative) return null
+
   const mAvg = n(data.maleAvgSalary), fAvg = n(data.femaleAvgSalary)
   const gap  = mAvg > 0 && fAvg > 0 ? (((mAvg - fAvg) / mAvg) * 100).toFixed(1) : null
   const cur  = data.currency || ''
@@ -455,6 +485,8 @@ function buildB10Page(data) {
 
 // B11 — Corporate Conduct
 function buildB11Page(data) {
+  if (data.corruptionConvictions === '' && data.corruptionFinesTotal === '' && !data.corruptionNarrative) return null
+
   const convictions = n(data.corruptionConvictions)
   const fines       = n(data.corruptionFinesTotal)
 

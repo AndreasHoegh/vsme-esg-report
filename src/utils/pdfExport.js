@@ -697,16 +697,22 @@ export async function exportPDF(data, design = {}) {
 
   // ── B6 Waste ──
   if (y > 200) y = newPage(doc, theme, data.companyName, pc)
-  const totalW = parseFloat(data.totalWasteGenerated) || 0
-  const hazW   = parseFloat(data.wasteHazardous) || 0
-  const recW   = parseFloat(data.wasteRecycled) || 0
+  const wUnit      = data.wasteUnit || 'tonnes'
+  const wasteTypes = data.wasteTypes || []
+  const totalW     = wasteTypes.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
+  const hazW       = wasteTypes.filter(e => e.hazardous).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
+  const recW       = wasteTypes.reduce((s, e) => s + (parseFloat(e.recycled) || 0), 0)
+  const wasteTypeRows = wasteTypes.map(e => {
+    const name = e.typeKey === 'Other (specify)' ? (e.customName || 'Other') : (e.typeKey || 'Unknown')
+    const haz  = e.hazardous ? ' ⚠' : ''
+    const rec  = e.recycled  ? ` (recycled: ${parseFloat(e.recycled).toFixed(2)})` : ''
+    return { type: 'row', label: name + haz, value: `${parseFloat(e.amount || 0).toFixed(2)} ${wUnit}${rec}` }
+  })
   y = contentSection(doc, theme, 'B6', 'Waste', [
-    { type: 'kpi', label: 'Total Waste', value: totalW, unit: data.wasteUnit },
-    { type: 'kpi', label: 'Hazardous', value: hazW, unit: data.wasteUnit },
-    ...(totalW > 0 && recW > 0 ? [{ type: 'kpi', label: 'Recycling Rate', value: ((recW/totalW)*100).toFixed(1), unit: '%' }] : []),
-    { type: 'row', label: 'Non-Hazardous Waste', value: `${(totalW-hazW).toFixed(3)} ${data.wasteUnit}` },
-    { type: 'row', label: 'Recycled / Recovered', value: `${data.wasteRecycled || '—'} ${data.wasteUnit}` },
-    { type: 'row', label: 'Disposed to Landfill', value: `${data.wasteDisposedLandfill || '—'} ${data.wasteUnit}` },
+    ...(totalW > 0 ? [{ type: 'kpi', label: 'Total Waste', value: totalW.toFixed(2), unit: wUnit }] : []),
+    ...(hazW > 0   ? [{ type: 'kpi', label: 'Hazardous',   value: hazW.toFixed(2),   unit: wUnit }] : []),
+    ...(totalW > 0 && recW > 0 ? [{ type: 'kpi', label: 'Recycling Rate', value: ((recW / totalW) * 100).toFixed(1), unit: '%' }] : []),
+    ...wasteTypeRows,
   ], data.wasteNarrative, null, imgLayout, y, pc)
 
   // ── B7 Workforce ──

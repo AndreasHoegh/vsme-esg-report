@@ -343,8 +343,64 @@
 }
 .ce-page-btn.active .ce-page-num { background: var(--pc); color: #fff; }
 
-.ce-page-title { font-size: 11px; color: #94a3b8; line-height: 1.3; }
+.ce-page-title { font-size: 11px; color: #94a3b8; line-height: 1.3; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ce-page-btn.active .ce-page-title { color: #e2e8f0; font-weight: 600; }
+
+.ce-page-add-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  background: none;
+  border: 1px dashed #334155;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.ce-page-add-btn:hover { background: #1e293b; border-color: #475569; color: #94a3b8; }
+
+.ce-pages-deleted-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 10px 8px 4px;
+}
+
+.ce-page-deleted-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  opacity: 0.55;
+}
+.ce-page-deleted-item .ce-page-num { background: #334155; color: #64748b; }
+
+.ce-page-restore-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid #334155;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+.ce-page-restore-btn:hover {
+  background: #dcfce7;
+  color: #16a34a;
+  border-color: #86efac;
+  opacity: 1;
+}
 
 /* ─── Canvas Area ────────────────────────────────────────── */
 .ce-canvas-area {
@@ -367,11 +423,39 @@
 }
 
 .ce-page-block-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 595px;
   font-size: 10px;
   font-weight: 700;
   color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.07em;
+}
+
+.ce-page-delete-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+.ce-page-delete-btn:hover:not(:disabled) {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+.ce-page-delete-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .ce-canvas-wrap {
@@ -384,6 +468,28 @@
 /* Active page gets a blue outline */
 .ce-canvas-wrap.active {
   box-shadow: 0 20px 50px -10px rgba(0,0,0,0.6), 0 0 0 2px #2563eb;
+}
+
+/* Drop target highlight when dragging an element from another page */
+.ce-page-block--drag-target .ce-canvas-wrap {
+  box-shadow: 0 20px 50px -10px rgba(0,0,0,0.6), 0 0 0 3px #2563eb;
+  position: relative;
+}
+.ce-page-block--drag-target .ce-canvas-wrap::after {
+  content: 'Drop here';
+  position: absolute;
+  inset: 0;
+  background: rgba(37, 99, 235, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: #2563eb;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  border-radius: 2px;
+  border: 3px dashed #93c5fd;
 }
 
 /* Fabric.js injects its own wrapper — style it */

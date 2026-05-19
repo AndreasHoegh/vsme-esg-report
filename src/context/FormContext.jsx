@@ -13,7 +13,7 @@ const STEP_INDICATOR_FIELDS = [
   ['hasPollutionReporting'],                                                       // B4
   ['hasBiodiversitySites'],                                                        // B5
   ['totalWaterWithdrawal'],                                                        // B6
-  ['totalWasteGenerated', 'usesCircularEconomy'],                                  // B7
+  ['wasteTypes', 'usesCircularEconomy'],                                            // B7
   ['totalEmployees', 'permanentEmployees', 'maleEmployees'],                       // B8
   ['workRelatedInjuries', 'workRelatedFatalities'],                                // B9
   ['minimumWageCompliance', 'collectiveBargainingCoverage', 'avgTrainingHours'],   // B10
@@ -53,6 +53,7 @@ const ALL_TRACKED_FIELDS = [
 
 function isFilled(val) {
   if (val === null || val === undefined) return false
+  if (Array.isArray(val)) return val.length > 0
   return String(val).trim() !== ''
 }
 
@@ -88,8 +89,28 @@ const initialData = {
   gasUnit: 'm³', fuelOilUnit: 'L', districtUnit: 'MWh',
   hasEnergyManagementSystem: '', energyReductionTarget: '', energyNarrative: '',
   // B3 GHG
-  scope1Emissions: '', scope2Emissions: '', scope3Emissions: '',
-  ghgUnit: 'tCO2e', ghgBaseYear: '', ghgReductionTarget: '',
+  ghgUnit: 'tCO2e',
+  // Scope 1 — direct
+  scope1Emissions: '',
+  scope1Stationary: '',   // on-site combustion (boilers, generators)
+  scope1Mobile: '',       // company vehicles
+  scope1Fugitive: '',     // refrigerants, gas leaks
+  scope1Process: '',      // industrial process emissions
+  // Scope 2 — purchased energy
+  scope2Emissions: '',    // market-based (primary figure)
+  scope2LocationBased: '', // location-based (grid average)
+  scope2Electricity: '',  // purchased electricity component
+  scope2Heating: '',      // district heating / steam component
+  // Scope 3 — value chain (voluntary)
+  scope3Emissions: '',    // total scope 3
+  scope3BusinessTravel: '',
+  scope3Commuting: '',
+  scope3PurchasedGoods: '',
+  scope3Waste: '',
+  scope3UpstreamTransport: '',
+  scope3DownstreamTransport: '',
+  scope3UseOfProducts: '',
+  ghgBaseYear: '', ghgReductionTarget: '',
   methodologyDescription: '', ghgNarrative: '',
 
   // B4 Pollution
@@ -112,10 +133,8 @@ const initialData = {
   // B7 Resources, Circular Economy & Waste
   usesCircularEconomy: '',
   circularEconomyDescription: '',
-  totalWasteGenerated: '', wasteUnit: 'tonnes',
-  wasteHazardous: '', wasteNonHazardous: '',
-  wasteRecycled: '', wasteRecycledForReuse: '',
-  wasteToIncineration: '', wasteDisposedLandfill: '',
+  wasteTypes: [],
+  wasteUnit: 'tonnes',
   materialFlowDescription: '',
   wasteNarrative: '',
 

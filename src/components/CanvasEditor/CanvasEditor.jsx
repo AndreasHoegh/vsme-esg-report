@@ -360,7 +360,7 @@ async function applyBlock(canvas, block, config, y) {
 
     case 'spacer': return y + (block.height || 16)
     case 'cover':  return renderCoverBlock(canvas, block.data, config)
-    case 'toc':    return renderTOCBlock(canvas, config, block.pageMap || {})
+    case 'toc':    return renderTOCBlock(canvas, config, block.pageMap || {}, block.presentBadges)
     default:       return y
   }
 }
@@ -521,13 +521,14 @@ function renderCoverDark(canvas, data, config) {
 
 // ─── Table of contents ────────────────────────────────────────────────────────
 
-function renderTOCBlock(canvas, config, pageMap) {
+function renderTOCBlock(canvas, config, pageMap, presentBadges) {
   const { theme, fontPair, reportStyle } = config
-  const SECTIONS = [
+  const ALL_SECTIONS = [
     ['B1','General Information'],['B2','Policies & Commitments'],['B3','Energy & GHG Emissions'],
     ['B4','Pollution'],['B5','Biodiversity'],['B6','Water'],['B7','Resources & Circular Economy'],
     ['B8','Own Workforce'],['B9','Health & Safety'],['B10','Pay & Training'],['B11','Corporate Conduct'],
   ]
+  const SECTIONS = presentBadges ? ALL_SECTIONS.filter(([b]) => presentBadges.has(b)) : ALL_SECTIONS
   // TOC header matches section band style
   if (reportStyle === 'modern') {
     canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: 72, height: 80, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
@@ -602,6 +603,8 @@ export default function CanvasEditor({ data, onClose }) {
   const pushHistoryRef    = useRef(null)
   const lastPointerRef    = useRef({})
   const updateSelColorRef = useRef(null)
+  const userObjectsRef    = useRef({}) // per-page cache of user-added objects, always up to date
+  const nudgeTimerRef     = useRef(null)
 
   const [activeIdx, _setActiveIdx]          = useState(0)
   const [themeId, setThemeId]               = useState('navy')
@@ -620,6 +623,15 @@ export default function CanvasEditor({ data, onClose }) {
   const [canUndo, setCanUndo]               = useState(false)
   const [canRedo, setCanRedo]               = useState(false)
   const [, forceUpdate]                     = useState(0)
+  const [dragTargetPage, setDragTargetPage]         = useState(null)
+  const [deletedPageIndices, setDeletedPageIndices] = useState(() => new Set())
+  const [customPageCount, setCustomPageCount]       = useState(0)
+
+  const deletedPageIndicesRef = useRef(new Set())
+  const dragTargetRef         = useRef(null)   // page index the object is heading toward
+  const dragSourceRef    = useRef(null)   // { fromIdx, obj }
+  const crossPageOpsRef  = useRef([])    // undo stack for cross-page transfers
+  const crossPageRedoRef = useRef([])    // redo stack for cross-page transfers
 
   const customTheme = useMemo(() => makeThemeFromColor(customColor), [customColor])
   const THEMES_ALL  = useMemo(() => [...THEMES, customTheme], [customTheme])
@@ -648,6 +660,9 @@ export default function CanvasEditor({ data, onClose }) {
     if (hist.stack.length > 40) hist.stack.shift()
     hist.idx = hist.stack.length-1
     if (activeIdxRef.current === idx) { setCanUndo(hist.idx > 0); setCanRedo(false) }
+    userObjectsRef.current[idx] = json.objects.filter(o => o.data?.userAdded)
+    // New action on this page invalidates any pending cross-page redos involving it
+    crossPageRedoRef.current = crossPageRedoRef.current.filter(op => op.fromIdx !== idx && op.toIdx !== idx)
   }, [])
   pushHistoryRef.current = pushHistoryForCanvas
 
@@ -684,7 +699,58 @@ export default function CanvasEditor({ data, onClose }) {
       canvas.on('selection:created', (e) => { if (activeIdxRef.current === i) { setHasSelection(true); updateSelColorRef.current?.(e.selected?.[0]) } })
       canvas.on('selection:updated', (e) => { if (activeIdxRef.current === i) updateSelColorRef.current?.(e.selected?.[0] ?? canvas.getActiveObject()) })
       canvas.on('selection:cleared', () => { if (activeIdxRef.current === i) { setHasSelection(false); setSelType(null) } })
-      canvas.on('object:modified', () => { pushHistoryRef.current(i, canvas); forceUpdate(n => n+1) })
+      canvas.on('object:moving', (e) => {
+        const obj = e.target
+        const centerY = obj.top + obj.getScaledHeight() / 2
+        let newTarget = null
+        if (centerY < 0 && i > 0) { newTarget = i - 1; dragSourceRef.current = { fromIdx: i, obj } }
+        else if (centerY > CH && i < instances.length - 1) { newTarget = i + 1; dragSourceRef.current = { fromIdx: i, obj } }
+        else dragSourceRef.current = null
+        if (newTarget !== dragTargetRef.current) { dragTargetRef.current = newTarget; setDragTargetPage(newTarget) }
+      })
+      canvas.on('object:modified', () => {
+        const target = dragTargetRef.current, source = dragSourceRef.current
+        dragTargetRef.current = null; dragSourceRef.current = null; setDragTargetPage(null)
+        if (target !== null && source?.fromIdx === i) {
+          const { obj } = source
+          const toCanvas = fabricInstances.current[target]
+          if (!toCanvas || !obj) { pushHistoryRef.current(i, canvas); forceUpdate(n => n+1); return }
+          // Capture pre-transfer states for undo
+          const fromHistIdxBefore = historyRef.current[i]?.idx ?? 0
+          const toHistIdxBefore   = historyRef.current[target]?.idx ?? 0
+          const preFromJson = historyRef.current[i]?.stack[fromHistIdxBefore] ?? null
+          const preToJson   = toCanvas.toJSON(['data'])
+          const objH = obj.getScaledHeight(), objW = obj.getScaledWidth()
+          let newTop = target > i ? Math.max(0, obj.top - CH) : Math.min(CH - objH, CH + obj.top)
+          newTop = Math.max(0, Math.min(newTop, CH - Math.max(objH, 20)))
+          const newLeft = Math.max(0, Math.min(obj.left, CW - Math.max(objW, 20)))
+          obj.clone(clone => {
+            clone.set({ left: newLeft, top: newTop, data: { ...(clone.data||{}), userAdded: true } }); sel(clone)
+            // canvas.remove() uses indexOf and can miss the dragged object in Fabric 5's
+            // active-object layer — filter ensures it's truly gone from the source canvas
+            canvas.remove(obj)
+            canvas._objects = canvas._objects.filter(o => o !== obj)
+            canvas.discardActiveObject(); canvas.renderAll(); pushHistoryRef.current(i, canvas)
+            toCanvas.add(clone); toCanvas.bringToFront(clone); toCanvas.setActiveObject(clone); toCanvas.renderAll(); pushHistoryRef.current(target, toCanvas)
+            // Record the cross-page op for undo/redo
+            if (preFromJson) {
+              crossPageOpsRef.current.push({
+                fromIdx: i, toIdx: target,
+                fromHistIdxBefore, toHistIdxBefore,
+                fromHistIdxAfter: historyRef.current[i].idx,
+                toHistIdxAfter:   historyRef.current[target].idx,
+                undo: { fromJson: preFromJson, toJson: preToJson },
+                redo: { fromJson: historyRef.current[i].stack[historyRef.current[i].idx], toJson: historyRef.current[target].stack[historyRef.current[target].idx] },
+              })
+              crossPageRedoRef.current = []
+            }
+            const prev = fabricInstances.current[activeIdxRef.current]; if (prev && activeIdxRef.current !== target) { prev.discardActiveObject(); prev.renderAll() }
+            setActiveIdx(target); setHasSelection(true); updateSelColorRef.current?.(clone)
+          })
+        } else {
+          pushHistoryRef.current(i, canvas); forceUpdate(n => n+1)
+        }
+      })
       canvas.on('text:changed', () => pushHistoryRef.current(i, canvas))
       canvas.on('mouse:dblclick', (e) => { const obj = e.target; if (obj?.type === 'textbox' && obj.editable !== false) { canvas.setActiveObject(obj); obj.enterEditing(); canvas.renderAll() } })
       renderPage(canvas, page, configRef.current, i+1, data.companyName).then(() => { if (!historyRef.current[i]) historyRef.current[i] = { stack: [canvas.toJSON(['data'])], idx: 0 } })
@@ -696,13 +762,32 @@ export default function CanvasEditor({ data, onClose }) {
   // Theme change — recolor only
   useEffect(() => { fabricInstances.current.forEach(c => { if (c) recolorCanvas(c, theme) }) }, [theme]) // eslint-disable-line
 
-  // Helper: re-render all pages
+  // Helper: re-render all pages, preserving user-added objects
   const rerenderAll = useCallback(() => {
     fabricInstances.current.forEach((canvas, i) => {
-      if (!canvas || !pages[i]) return
+      if (!canvas || !pages[i] || deletedPageIndicesRef.current.has(i)) return
+      const savedUserObjs = userObjectsRef.current[i] || []
       renderPage(canvas, pages[i], configRef.current, i+1, data.companyName).then(() => {
-        historyRef.current[i] = { stack: [canvas.toJSON(['data'])], idx: 0 }
-        if (activeIdxRef.current === i) { setCanUndo(false); setCanRedo(false) }
+        const finish = () => {
+          // Snapshot after user objects are placed so future switches see them
+          userObjectsRef.current[i] = canvas.toJSON(['data']).objects.filter(o => o.data?.userAdded)
+          historyRef.current[i] = { stack: [canvas.toJSON(['data'])], idx: 0 }
+          if (activeIdxRef.current === i) { setCanUndo(false); setCanRedo(false) }
+        }
+        if (savedUserObjs.length > 0) {
+          // Enliven the saved plain JSON objects into real Fabric objects, then add on top
+          fabric.util.enlivenObjects(savedUserObjs, (objs) => {
+            objs.forEach(o => {
+              o.set({ borderColor: '#2563eb', cornerColor: '#2563eb', cornerStyle: 'circle', cornerSize: 9, transparentCorners: false, padding: 2 })
+              canvas.add(o)
+            })
+            recolorCanvas(canvas, themeRef.current)
+            canvas.renderAll()
+            finish()
+          })
+        } else {
+          finish()
+        }
       })
     })
   }, [pages, data]) // eslint-disable-line
@@ -715,16 +800,130 @@ export default function CanvasEditor({ data, onClose }) {
   const fontPairMountedRef = useRef(false)
   useEffect(() => { if (!fontPairMountedRef.current) { fontPairMountedRef.current = true; return }; rerenderAll() }, [fontPairId]) // eslint-disable-line
 
+  // New custom blank page — initialize its Fabric canvas after DOM renders it
+  useEffect(() => {
+    if (customPageCount === 0) return
+    const i = pages.length + customPageCount - 1
+    const el = canvasElRefs.current[i]
+    if (!el || fabricInstances.current[i]) return
+    const canvas = new fabric.Canvas(el, { width: CW, height: CH, backgroundColor: '#ffffff', preserveObjectStacking: true, stopContextMenu: true })
+    while (fabricInstances.current.length <= i) fabricInstances.current.push(null)
+    fabricInstances.current[i] = canvas
+    canvas.on('mouse:down', (e) => {
+      const p = canvas.getPointer(e.e); lastPointerRef.current[i] = { x: p.x, y: p.y }
+      if (activeIdxRef.current !== i) { const prev = fabricInstances.current[activeIdxRef.current]; if (prev) { prev.discardActiveObject(); prev.renderAll() }; setActiveIdx(i); setHasSelection(false) }
+    })
+    canvas.on('selection:created', (e) => { if (activeIdxRef.current === i) { setHasSelection(true); updateSelColorRef.current?.(e.selected?.[0]) } })
+    canvas.on('selection:updated', (e) => { if (activeIdxRef.current === i) updateSelColorRef.current?.(e.selected?.[0] ?? canvas.getActiveObject()) })
+    canvas.on('selection:cleared', () => { if (activeIdxRef.current === i) { setHasSelection(false); setSelType(null) } })
+    canvas.on('object:moving', (e) => {
+      const obj = e.target
+      const centerY = obj.top + obj.getScaledHeight() / 2
+      let newTarget = null
+      if (centerY < 0 && i > 0) { newTarget = i - 1; dragSourceRef.current = { fromIdx: i, obj } }
+      else if (centerY > CH && i < fabricInstances.current.length - 1) { newTarget = i + 1; dragSourceRef.current = { fromIdx: i, obj } }
+      else dragSourceRef.current = null
+      if (newTarget !== dragTargetRef.current) { dragTargetRef.current = newTarget; setDragTargetPage(newTarget) }
+    })
+    canvas.on('object:modified', () => {
+      const target = dragTargetRef.current, source = dragSourceRef.current
+      dragTargetRef.current = null; dragSourceRef.current = null; setDragTargetPage(null)
+      if (target !== null && source?.fromIdx === i) {
+        const { obj } = source
+        const toCanvas = fabricInstances.current[target]
+        if (!toCanvas || !obj) { pushHistoryRef.current(i, canvas); forceUpdate(n => n+1); return }
+        const fromHistIdxBefore = historyRef.current[i]?.idx ?? 0
+        const toHistIdxBefore   = historyRef.current[target]?.idx ?? 0
+        const preFromJson = historyRef.current[i]?.stack[fromHistIdxBefore] ?? null
+        const preToJson   = toCanvas.toJSON(['data'])
+        const objH = obj.getScaledHeight(), objW = obj.getScaledWidth()
+        let newTop = target > i ? Math.max(0, obj.top - CH) : Math.min(CH - objH, CH + obj.top)
+        newTop = Math.max(0, Math.min(newTop, CH - Math.max(objH, 20)))
+        const newLeft = Math.max(0, Math.min(obj.left, CW - Math.max(objW, 20)))
+        obj.clone(clone => {
+          clone.set({ left: newLeft, top: newTop, data: { ...(clone.data||{}), userAdded: true } }); sel(clone)
+          canvas.remove(obj)
+          canvas._objects = canvas._objects.filter(o => o !== obj)
+          canvas.discardActiveObject(); canvas.renderAll(); pushHistoryRef.current(i, canvas)
+          toCanvas.add(clone); toCanvas.bringToFront(clone); toCanvas.setActiveObject(clone); toCanvas.renderAll(); pushHistoryRef.current(target, toCanvas)
+          if (preFromJson) {
+            crossPageOpsRef.current.push({
+              fromIdx: i, toIdx: target,
+              fromHistIdxBefore, toHistIdxBefore,
+              fromHistIdxAfter: historyRef.current[i].idx,
+              toHistIdxAfter:   historyRef.current[target].idx,
+              undo: { fromJson: preFromJson, toJson: preToJson },
+              redo: { fromJson: historyRef.current[i].stack[historyRef.current[i].idx], toJson: historyRef.current[target].stack[historyRef.current[target].idx] },
+            })
+            crossPageRedoRef.current = []
+          }
+          const prev = fabricInstances.current[activeIdxRef.current]; if (prev && activeIdxRef.current !== target) { prev.discardActiveObject(); prev.renderAll() }
+          setActiveIdx(target); setHasSelection(true); updateSelColorRef.current?.(clone)
+        })
+      } else {
+        pushHistoryRef.current(i, canvas); forceUpdate(n => n+1)
+      }
+    })
+    canvas.on('text:changed', () => pushHistoryRef.current(i, canvas))
+    canvas.on('mouse:dblclick', (e) => { const obj = e.target; if (obj?.type === 'textbox' && obj.editable !== false) { canvas.setActiveObject(obj); obj.enterEditing(); canvas.renderAll() } })
+    canvas.renderAll()
+    historyRef.current[i] = { stack: [canvas.toJSON(['data'])], idx: 0 }
+    recolorCanvas(canvas, themeRef.current)
+    setActiveIdx(i)
+    setTimeout(() => { pageContainerRefs.current[i]?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, 100)
+  }, [customPageCount]) // eslint-disable-line
+
   const handleUndo = useCallback(() => {
     const idx = activeIdxRef.current, canvas = fabricInstances.current[idx], h = historyRef.current[idx]
+    // Cross-page undo: if the last transfer involved the active page, restore both canvases
+    const ops = crossPageOpsRef.current
+    const lastOp = ops.length > 0 ? ops[ops.length - 1] : null
+    if (lastOp && (lastOp.fromIdx === idx || lastOp.toIdx === idx)) {
+      ops.pop()
+      crossPageRedoRef.current.push(lastOp)
+      const fromCanvas = fabricInstances.current[lastOp.fromIdx], toCanvas = fabricInstances.current[lastOp.toIdx]
+      const fromHist = historyRef.current[lastOp.fromIdx], toHist = historyRef.current[lastOp.toIdx]
+      if (fromHist) fromHist.idx = lastOp.fromHistIdxBefore
+      if (toHist)   toHist.idx   = lastOp.toHistIdxBefore
+      fromCanvas?.loadFromJSON(lastOp.undo.fromJson, () => { recolorCanvas(fromCanvas, themeRef.current); fromCanvas.renderAll(); userObjectsRef.current[lastOp.fromIdx] = lastOp.undo.fromJson.objects?.filter(o => o.data?.userAdded) ?? [] })
+      toCanvas?.loadFromJSON(lastOp.undo.toJson,     () => { recolorCanvas(toCanvas, themeRef.current);   toCanvas.renderAll();   userObjectsRef.current[lastOp.toIdx]   = lastOp.undo.toJson.objects?.filter(o => o.data?.userAdded) ?? [] })
+      setCanUndo(false); setCanRedo(true)
+      return
+    }
+    // Normal single-page undo
     if (!canvas || !h || h.idx <= 0) return
-    h.idx--; canvas.loadFromJSON(h.stack[h.idx], () => { recolorCanvas(canvas, themeRef.current); canvas.renderAll() })
+    h.idx--
+    canvas.loadFromJSON(h.stack[h.idx], () => {
+      recolorCanvas(canvas, themeRef.current); canvas.renderAll()
+      userObjectsRef.current[idx] = h.stack[h.idx].objects.filter(o => o.data?.userAdded)
+    })
     setCanUndo(h.idx > 0); setCanRedo(true)
   }, [])
+
   const handleRedo = useCallback(() => {
     const idx = activeIdxRef.current, canvas = fabricInstances.current[idx], h = historyRef.current[idx]
+    // Cross-page redo: if we previously undid a cross-page transfer, redo both canvases
+    const redos = crossPageRedoRef.current
+    const lastRedo = redos.length > 0 ? redos[redos.length - 1] : null
+    if (lastRedo && (lastRedo.fromIdx === idx || lastRedo.toIdx === idx)) {
+      redos.pop()
+      crossPageOpsRef.current.push(lastRedo)
+      const fromCanvas = fabricInstances.current[lastRedo.fromIdx], toCanvas = fabricInstances.current[lastRedo.toIdx]
+      const fromHist = historyRef.current[lastRedo.fromIdx], toHist = historyRef.current[lastRedo.toIdx]
+      if (fromHist) fromHist.idx = lastRedo.fromHistIdxAfter
+      if (toHist)   toHist.idx   = lastRedo.toHistIdxAfter
+      fromCanvas?.loadFromJSON(lastRedo.redo.fromJson, () => { recolorCanvas(fromCanvas, themeRef.current); fromCanvas.renderAll(); userObjectsRef.current[lastRedo.fromIdx] = lastRedo.redo.fromJson.objects?.filter(o => o.data?.userAdded) ?? [] })
+      toCanvas?.loadFromJSON(lastRedo.redo.toJson,     () => { recolorCanvas(toCanvas, themeRef.current);   toCanvas.renderAll();   userObjectsRef.current[lastRedo.toIdx]   = lastRedo.redo.toJson.objects?.filter(o => o.data?.userAdded) ?? [] })
+      setCanUndo(true); setCanRedo(false)
+      return
+    }
+    // Normal single-page redo
     if (!canvas || !h || h.idx >= h.stack.length-1) return
-    h.idx++; canvas.loadFromJSON(h.stack[h.idx], () => { recolorCanvas(canvas, themeRef.current); canvas.renderAll() })
+    h.idx++
+    canvas.loadFromJSON(h.stack[h.idx], () => {
+      recolorCanvas(canvas, themeRef.current); canvas.renderAll()
+      userObjectsRef.current[idx] = h.stack[h.idx].objects.filter(o => o.data?.userAdded)
+    })
     setCanUndo(true); setCanRedo(h.idx < h.stack.length-1)
   }, [])
 
@@ -774,15 +973,15 @@ export default function CanvasEditor({ data, onClose }) {
     const t = themeRef.current
     let obj
     if (shapeType === 'circle') {
-      obj = sel(new fabric.Circle({ left: cx, top: cy, radius: 40, fill: t.light, stroke: t.primary, strokeWidth: 1.5, data: { tr: 'l' } }))
+      obj = sel(new fabric.Circle({ left: cx, top: cy, radius: 40, fill: t.light, stroke: t.primary, strokeWidth: 1.5, data: { tr: 'l', userAdded: true } }))
     } else if (shapeType === 'rect') {
-      obj = sel(new fabric.Rect({ left: cx, top: cy, width: 120, height: 70, fill: t.light, stroke: t.primary, strokeWidth: 1.5, rx: 0, ry: 0, data: { tr: 'l' } }))
+      obj = sel(new fabric.Rect({ left: cx, top: cy, width: 120, height: 70, fill: t.light, stroke: t.primary, strokeWidth: 1.5, rx: 0, ry: 0, data: { tr: 'l', userAdded: true } }))
     } else if (shapeType === 'rounded') {
-      obj = sel(new fabric.Rect({ left: cx, top: cy, width: 120, height: 70, fill: t.light, stroke: t.primary, strokeWidth: 1.5, rx: 14, ry: 14, data: { tr: 'l' } }))
+      obj = sel(new fabric.Rect({ left: cx, top: cy, width: 120, height: 70, fill: t.light, stroke: t.primary, strokeWidth: 1.5, rx: 14, ry: 14, data: { tr: 'l', userAdded: true } }))
     } else if (shapeType === 'line') {
-      obj = sel(new fabric.Line([cx, cy, cx+160, cy], { stroke: t.primary, strokeWidth: 2, data: { tr: 'ps' } }))
+      obj = sel(new fabric.Line([cx, cy, cx+160, cy], { stroke: t.primary, strokeWidth: 2, data: { tr: 'ps', userAdded: true } }))
     } else if (shapeType === 'triangle') {
-      obj = sel(new fabric.Triangle({ left: cx, top: cy, width: 80, height: 70, fill: t.light, stroke: t.primary, strokeWidth: 1.5, data: { tr: 'l' } }))
+      obj = sel(new fabric.Triangle({ left: cx, top: cy, width: 80, height: 70, fill: t.light, stroke: t.primary, strokeWidth: 1.5, data: { tr: 'l', userAdded: true } }))
     }
     if (obj) { canvas.add(obj); canvas.setActiveObject(obj); canvas.renderAll(); pushHistoryRef.current(idx, canvas) }
   }, [])
@@ -793,7 +992,7 @@ export default function CanvasEditor({ data, onClose }) {
     const clones = []; let pending = objs.length
     objs.forEach(obj => {
       obj.clone(clone => {
-        clone.set({ left: (clone.left||0)+14, top: (clone.top||0)+14 }); sel(clone); canvas.add(clone); clones.push(clone)
+        clone.set({ left: (clone.left||0)+14, top: (clone.top||0)+14, data: { ...(clone.data||{}), userAdded: true } }); sel(clone); canvas.add(clone); clones.push(clone)
         if (--pending === 0) {
           canvas.discardActiveObject()
           if (clones.length === 1) canvas.setActiveObject(clones[0])
@@ -809,7 +1008,7 @@ export default function CanvasEditor({ data, onClose }) {
     const ptr = lastPointerRef.current[idx]
     const x = ptr ? Math.max(0, Math.min(ptr.x, CW-100)) : ML
     const y = ptr ? Math.max(0, Math.min(ptr.y, CH-40)) : 200
-    const t = tb('Your text here', { left: x, top: y, width: Math.min(CONTENT_W, CW-x), fontSize: 11, fill: '#334155', data: { type: 'user-text' } })
+    const t = tb('Your text here', { left: x, top: y, width: Math.min(CONTENT_W, CW-x), fontSize: 11, fill: '#334155', data: { type: 'user-text', userAdded: true } })
     canvas.add(t); canvas.setActiveObject(t); t.enterEditing(); canvas.renderAll(); pushHistoryRef.current(idx, canvas)
   }, [])
   const handleAddImage = useCallback(() => fileInputRef.current?.click(), [])
@@ -824,7 +1023,7 @@ export default function CanvasEditor({ data, onClose }) {
         const scale = Math.min(240/fimg.width, 180/fimg.height, 1)
         const x = ptr ? Math.max(0, Math.min(ptr.x, CW-fimg.width*scale)) : ML
         const y = ptr ? Math.max(0, Math.min(ptr.y, CH-fimg.height*scale)) : 140
-        fimg.set({ left: x, top: y, scaleX: scale, scaleY: scale, data: { type: 'image-block' } }); sel(fimg)
+        fimg.set({ left: x, top: y, scaleX: scale, scaleY: scale, data: { type: 'image-block', userAdded: true } }); sel(fimg)
         const canvas = fabricInstances.current[idx]; if (!canvas) return
         canvas.add(fimg); canvas.setActiveObject(fimg); canvas.renderAll(); pushHistoryRef.current(idx, canvas)
       }
@@ -866,23 +1065,83 @@ export default function CanvasEditor({ data, onClose }) {
     objs.forEach(o => canvas.sendToBack(o))
     canvas.renderAll(); pushHistoryRef.current(idx, canvas)
   }, [])
+  const handleDeletePage = useCallback((pageIdx) => {
+    const totalCount = pages.length + customPageCount
+    const visibleCount = totalCount - deletedPageIndicesRef.current.size
+    if (visibleCount <= 1) return
+    const newSet = new Set(deletedPageIndicesRef.current)
+    newSet.add(pageIdx)
+    deletedPageIndicesRef.current = newSet
+    setDeletedPageIndices(newSet)
+    crossPageOpsRef.current  = crossPageOpsRef.current.filter(op => op.fromIdx !== pageIdx && op.toIdx !== pageIdx)
+    crossPageRedoRef.current = crossPageRedoRef.current.filter(op => op.fromIdx !== pageIdx && op.toIdx !== pageIdx)
+    if (activeIdxRef.current === pageIdx) {
+      const allIdx = [...Array(totalCount).keys()]
+      const visible = allIdx.filter(i => !newSet.has(i))
+      const newActive = visible.find(i => i > pageIdx) ?? visible[visible.length - 1] ?? 0
+      setActiveIdx(newActive)
+      pageContainerRefs.current[newActive]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [pages, customPageCount, setActiveIdx])
+
+  const handleRestorePage = useCallback((pageIdx) => {
+    const newSet = new Set(deletedPageIndicesRef.current)
+    newSet.delete(pageIdx)
+    deletedPageIndicesRef.current = newSet
+    setDeletedPageIndices(newSet)
+    setActiveIdx(pageIdx)
+    setTimeout(() => { pageContainerRefs.current[pageIdx]?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, 50)
+  }, [setActiveIdx])
+
+  const handleAddBlankPage = useCallback(() => { setCustomPageCount(c => c + 1) }, [])
+
   const handlePageJump = useCallback((idx) => { setActiveIdx(idx); pageContainerRefs.current[idx]?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [setActiveIdx])
   const handleExport = useCallback(async () => {
     setIsExporting(true)
-    try { await exportAllPagesToPDF(pages, fabricInstances.current.map(c => c?.toJSON(['data'])), configRef.current, data.companyName, data.reportingYear) }
+    try {
+      const allIdx = [...Array(pages.length + customPageCount).keys()]
+      const visIdx = allIdx.filter(i => !deletedPageIndicesRef.current.has(i))
+      const pageSpecs = visIdx.map(i => i < pages.length ? pages[i] : { title: 'Custom', badge: '', blocks: [] })
+      await exportAllPagesToPDF(pageSpecs, visIdx.map(i => fabricInstances.current[i]?.toJSON(['data'])), configRef.current, data.companyName, data.reportingYear)
+    }
     finally { setIsExporting(false) }
-  }, [pages, data])
+  }, [pages, customPageCount, data])
 
   useEffect(() => {
+    const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
     const onKey = (e) => {
       if (e.ctrlKey || e.metaKey) {
-        if (e.key === 'z') { e.preventDefault(); handleUndo() }
-        if (e.key === 'y') { e.preventDefault(); handleRedo() }
-        if (e.key === 'd') { e.preventDefault(); handleDuplicate() }
+        if (e.key === 'z') { e.preventDefault(); e.stopPropagation(); handleUndo() }
+        if (e.key === 'y') { e.preventDefault(); e.stopPropagation(); handleRedo() }
+        if (e.key === 'd') { e.preventDefault(); e.stopPropagation(); handleDuplicate() }
+      }
+      if (ARROWS[e.key]) {
+        const canvas = fabricInstances.current[activeIdxRef.current]
+        const active = canvas?.getActiveObject()
+        // Let Fabric handle arrow keys when a text object is in edit mode (cursor movement)
+        if (!active || active.isEditing) return
+        e.preventDefault()
+        e.stopPropagation()  // prevent Fabric's own keydown handler from also firing
+        const step = e.shiftKey ? 10 : 1
+        const [dx, dy] = ARROWS[e.key].map(v => v * step)
+        active.set({ left: (active.left || 0) + dx, top: (active.top || 0) + dy })
+        active.setCoords()
+        // Also update Fabric's in-progress transform so a subsequent mouse interaction
+        // doesn't snap the object back to its pre-nudge position
+        if (canvas._currentTransform) {
+          canvas._currentTransform.original.left = active.left
+          canvas._currentTransform.original.top  = active.top
+        }
+        // Keep user-added elements (cross-page transfers, shapes, text) above auto-generated content
+        if (active.data?.userAdded) canvas.bringToFront(active)
+        canvas.renderAll()
+        clearTimeout(nudgeTimerRef.current)
+        nudgeTimerRef.current = setTimeout(() => pushHistoryRef.current(activeIdxRef.current, canvas), 400)
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // Capture phase: fires before any element-level listener (including Fabric's canvas handlers)
+    window.addEventListener('keydown', onKey, { capture: true })
+    return () => window.removeEventListener('keydown', onKey, { capture: true })
   }, [handleUndo, handleRedo, handleDuplicate])
 
   return (
@@ -1055,26 +1314,80 @@ export default function CanvasEditor({ data, onClose }) {
         <aside className="ce-pages">
           <p className="ce-pages-label">Pages</p>
           <div className="ce-page-list">
-            {pages.map((p, i) => (
+            {pages.map((p, i) => deletedPageIndices.has(i) ? null : (
               <button key={i} className={`ce-page-btn${i === activeIdx ? ' active' : ''}`}
                 style={{ '--pc': theme.primary }} onClick={() => handlePageJump(i)}>
                 <span className="ce-page-num">{i + 1}</span>
                 <span className="ce-page-title">{p.title}</span>
               </button>
             ))}
+            {Array.from({ length: customPageCount }, (_, ci) => {
+              const i = pages.length + ci
+              return deletedPageIndices.has(i) ? null : (
+                <button key={`cp-${i}`} className={`ce-page-btn${i === activeIdx ? ' active' : ''}`}
+                  style={{ '--pc': theme.primary }} onClick={() => handlePageJump(i)}>
+                  <span className="ce-page-num">{i + 1}</span>
+                  <span className="ce-page-title">Custom</span>
+                </button>
+              )
+            })}
+            <button className="ce-page-add-btn" onClick={handleAddBlankPage}>+ Add blank page</button>
+            {deletedPageIndices.size > 0 && (
+              <>
+                <div className="ce-pages-deleted-label">Deleted</div>
+                {[...deletedPageIndices].sort((a, b) => a - b).map(i => (
+                  <div key={`del-${i}`} className="ce-page-deleted-item">
+                    <span className="ce-page-num">{i + 1}</span>
+                    <span className="ce-page-title">{i < pages.length ? pages[i].title : 'Custom'}</span>
+                    <button className="ce-page-restore-btn" onClick={() => handleRestorePage(i)}>Restore</button>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         </aside>
 
         <main className="ce-canvas-area">
           {pages.map((page, i) => (
-            <div key={i} ref={el => { pageContainerRefs.current[i] = el }} className="ce-page-block">
-              <div className="ce-page-block-label">Page {i + 1} — {page.title}</div>
+            <div key={i} ref={el => { pageContainerRefs.current[i] = el }}
+              className={`ce-page-block${dragTargetPage === i ? ' ce-page-block--drag-target' : ''}`}
+              style={deletedPageIndices.has(i) ? { display: 'none' } : undefined}>
+              <div className="ce-page-block-label">
+                <span>Page {i + 1} — {page.title}</span>
+                <button
+                  className="ce-page-delete-btn"
+                  title="Delete this page"
+                  onClick={() => handleDeletePage(i)}
+                  disabled={(pages.length + customPageCount) - deletedPageIndices.size <= 1}
+                >✕ Delete page</button>
+              </div>
               <div className={`ce-canvas-wrap${i === activeIdx ? ' active' : ''}`}>
                 <canvas ref={el => { canvasElRefs.current[i] = el }} />
               </div>
             </div>
           ))}
-          <p className="ce-canvas-hint">Click to select · Drag to move · Double-click text to edit · Ctrl+D to duplicate</p>
+          {Array.from({ length: customPageCount }, (_, ci) => {
+            const i = pages.length + ci
+            return (
+              <div key={`cp-${i}`} ref={el => { pageContainerRefs.current[i] = el }}
+                className={`ce-page-block${dragTargetPage === i ? ' ce-page-block--drag-target' : ''}`}
+                style={deletedPageIndices.has(i) ? { display: 'none' } : undefined}>
+                <div className="ce-page-block-label">
+                  <span>Page {i + 1} — Custom</span>
+                  <button
+                    className="ce-page-delete-btn"
+                    title="Delete this page"
+                    onClick={() => handleDeletePage(i)}
+                    disabled={(pages.length + customPageCount) - deletedPageIndices.size <= 1}
+                  >✕ Delete page</button>
+                </div>
+                <div className={`ce-canvas-wrap${i === activeIdx ? ' active' : ''}`}>
+                  <canvas ref={el => { canvasElRefs.current[i] = el }} />
+                </div>
+              </div>
+            )
+          })}
+          <p className="ce-canvas-hint">Click to select · Drag to move · Drag past page edge to move to another page · Double-click text to edit · Ctrl+D to duplicate</p>
         </main>
       </div>
     </div>
