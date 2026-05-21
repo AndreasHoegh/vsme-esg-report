@@ -42,8 +42,6 @@ function AppInner() {
   const [showCloudTab, setShowCloudTab] = useState('save')
   const [showAuth, setShowAuth] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  // Show welcome screen when there is no local draft (company name empty = nothing was started)
-  const [showWelcome, setShowWelcome] = useState(() => !data.companyName)
   const [hasCanvasDraft, setHasCanvasDraft] = useState(() => !!localStorage.getItem('vsme_canvas_draft'))
   const [pendingCanvasDraft, setPendingCanvasDraft] = useState(null)
   const userMenuRef = useRef(null)
@@ -59,17 +57,6 @@ function AppInner() {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
-
-  // When user signs in while auth was opened from the welcome cloud-load flow, show cloud modal
-  const prevUserRef = useRef(user)
-  useEffect(() => {
-    if (!prevUserRef.current && user && showWelcome) {
-      setShowCloudTab('load')
-      setShowCloud(true)
-      setShowAuth(false)
-    }
-    prevUserRef.current = user
-  }, [user]) // eslint-disable-line
 
   // When the user signs in with no local canvas draft, silently pull the canvas draft
   // from their most recent cloud save so "Continue editing" works immediately on any device.
@@ -116,56 +103,6 @@ function AppInner() {
       setPendingCanvasDraft(null)
       setHasCanvasDraft(!!localStorage.getItem('vsme_canvas_draft'))
     }} />
-  }
-
-  if (showWelcome) {
-    return (
-      <div className="welcome-screen">
-        <div className="welcome-card">
-          <div className="welcome-icon">🌱</div>
-          <h1 className="welcome-title">VSME ESG Builder</h1>
-          <p className="welcome-sub">Basic Module (B1–B11)</p>
-          <div className="welcome-actions">
-            <button
-              className="welcome-btn welcome-btn--primary"
-              onClick={() => setShowWelcome(false)}
-            >
-              Start new report
-            </button>
-            <button
-              className="welcome-btn welcome-btn--cloud"
-              onClick={() => {
-                setShowCloudTab('load')
-                if (user) {
-                  setShowCloud(true)
-                } else {
-                  setShowAuth(true)
-                }
-              }}
-            >
-              ☁ Load saved report
-            </button>
-            <button
-              className="welcome-btn welcome-btn--demo"
-              onClick={() => { loadDemo(); setShowWelcome(false) }}
-            >
-              Load example data
-            </button>
-          </div>
-        </div>
-        {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
-        {showCloud && (
-          <CloudSyncModal
-            data={data}
-            onLoad={(reportData, canvasDraft) => { handleCloudLoad(reportData, canvasDraft); setShowWelcome(false) }}
-            onClose={() => setShowCloud(false)}
-            hook={cloudSync}
-            initialTab="load"
-            onSignIn={() => { setShowCloud(false); setShowAuth(true) }}
-          />
-        )}
-      </div>
-    )
   }
 
   return (

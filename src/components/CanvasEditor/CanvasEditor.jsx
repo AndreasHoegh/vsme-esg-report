@@ -1312,22 +1312,6 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
         </div>
       </header>
 
-      {/* Design bar */}
-      <div className="ce-design-bar">
-        <span className="ce-design-label">Style:</span>
-        {REPORT_STYLES.map(s => (
-          <button key={s.id}
-            className={`ce-design-btn${reportStyleId === s.id ? ' ce-design-btn--active' : ''}`}
-            style={reportStyleId === s.id ? { borderColor: theme.primary, color: theme.primary, background: `${theme.primary}18` } : {}}
-            onClick={() => setReportStyleId(s.id)}
-          >{s.label}</button>
-        ))}
-        <span className="ce-design-sep" />
-        <span className="ce-design-label">Font:</span>
-        <select value={fontPairId} onChange={e => setFontPairId(e.target.value)} className="ce-select">
-          {FONT_PAIRS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
-        </select>
-      </div>
 
       {/* Properties bar */}
       {hasSelection && (selType === 'text' || selType === 'image' || selType === 'rect' || selType === 'circle') && (

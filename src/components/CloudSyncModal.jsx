@@ -15,7 +15,6 @@ export default function CloudSyncModal({ data, onLoad, onClose, hook, onSignIn, 
   const [saveName, setSaveName] = useState(data.companyName || '')
   const [saveOk, setSaveOk] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
-  const [loadConfirm, setLoadConfirm] = useState(null)
 
   useEffect(() => {
     if (tab === 'load') listSaves()
@@ -33,9 +32,8 @@ export default function CloudSyncModal({ data, onLoad, onClose, hook, onSignIn, 
     }
   }
 
-  async function handleLoad(id, withCanvas) {
-    setLoadConfirm(null)
-    const result = await loadReport(id, withCanvas)
+  async function handleLoad(id) {
+    const result = await loadReport(id, true)
     if (result) {
       onLoad(result.formData, result.canvasDraft)
       onClose()
@@ -117,30 +115,7 @@ export default function CloudSyncModal({ data, onLoad, onClose, hook, onSignIn, 
                   <button className="csm-btn-save" onClick={onSignIn}>Sign in to continue</button>
                 </div>
               )}
-              {user && loadConfirm && (
-                <div className="csm-load-warning">
-                  <div className="csm-load-warning-icon">⚠</div>
-                  <div className="csm-load-warning-text">
-                    <strong>Load "{loadConfirm.name}"?</strong>
-                    <p>Choose how to open this report. Current unsaved changes will be lost.</p>
-                  </div>
-                  <div className="csm-load-mode-btns">
-                    <button className="csm-btn-load-canvas" onClick={() => handleLoad(loadConfirm.id, true)} disabled={loading}>
-                      {loading ? 'Loading…' : '🎨 With saved canvas layout'}
-                    </button>
-                    <button className="csm-btn-load-fresh" onClick={() => handleLoad(loadConfirm.id, false)} disabled={loading}>
-                      {loading ? 'Loading…' : '✨ Start fresh (regenerate)'}
-                    </button>
-                  </div>
-                  <div className="csm-load-warning-actions">
-                    <button className="csm-btn-save-first" onClick={() => { setTab('save'); setLoadConfirm(null) }}>
-                      Save first
-                    </button>
-                    <button className="csm-btn-ghost" onClick={() => setLoadConfirm(null)}>Cancel</button>
-                  </div>
-                </div>
-              )}
-              {user && loading && !loadConfirm && <div className="csm-spinner">Loading…</div>}
+              {user && loading && <div className="csm-spinner">Loading…</div>}
               {user && !loading && saves.length === 0 && (
                 <div className="csm-empty">
                   <span className="csm-empty-icon">☁</span>
@@ -149,7 +124,7 @@ export default function CloudSyncModal({ data, onLoad, onClose, hook, onSignIn, 
                 </div>
               )}
               {user && saves.map(s => (
-                <div key={s.id} className={`csm-save-row${loadConfirm?.id === s.id ? ' csm-save-row--pending' : ''}`}>
+                <div key={s.id} className="csm-save-row">
                   <div className="csm-save-info">
                     <span className="csm-save-name">{s.name}</span>
                     <span className="csm-save-date">{formatDate(s.updated_at)}</span>
@@ -162,10 +137,10 @@ export default function CloudSyncModal({ data, onLoad, onClose, hook, onSignIn, 
                       </>
                     ) : (
                       <>
-                        <button className="csm-btn-load" onClick={() => setLoadConfirm(s)} disabled={loading || !!loadConfirm}>
+                        <button className="csm-btn-load" onClick={() => handleLoad(s.id)} disabled={loading}>
                           Load
                         </button>
-                        <button className="csm-btn-ghost csm-btn-del" onClick={() => setDeleteConfirm(s.id)} title="Delete" disabled={!!loadConfirm}>
+                        <button className="csm-btn-ghost csm-btn-del" onClick={() => setDeleteConfirm(s.id)} title="Delete" disabled={loading}>
                           🗑
                         </button>
                       </>
