@@ -254,3 +254,47 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
+/* SDG goal selection grid */
+.sdg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.sdg-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  background: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.sdg-tile:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.sdg-tile--active {
+  background: #1a6a3a;
+}
+
+.sdg-tile__num {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.sdg-tile__name {
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+

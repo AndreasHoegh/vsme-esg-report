@@ -61,13 +61,15 @@ function isFilled(val) {
 const initialData = {
   // B1 General Information
   companyName: '', legalForm: '', registrationNumber: '', country: '', sector: '',
-  naceCode: '', employeeCount: '', reportingYear: new Date().getFullYear().toString(),
+  naceCode: '', address: '', website: '',
+  employeeCount: '', reportingYear: new Date().getFullYear().toString(),
   reportingPeriodStart: '', reportingPeriodEnd: '', currency: 'EUR',
   balanceSum: '', revenue: '',
   reportingBasis: '', // 'individual' or 'consolidated'
   reportingModule: '', // 'basic' or 'basic_extended'
   contactName: '', contactEmail: '', contactPhone: '',
   companyDescription: '',
+  sdgGoals: [], sdgNarrative: '',
 
   // B2 Policies & Actions — 10 topic areas × 3 columns
   policyClimate: '', policyClimatePublic: '', policyClimateTargets: '',
@@ -174,6 +176,7 @@ const initialData = {
 
   // Meta
   images: {},
+  excludedSections: [],
 }
 
 export function FormProvider({ children }) {

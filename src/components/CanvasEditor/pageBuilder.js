@@ -26,48 +26,105 @@ function yesNo(v) {
 // Rough height estimator — used only for packing decisions, not for rendering
 function estimateBlockHeight(block) {
   switch (block.type) {
-    case 'section-band':       return 62
-    case 'kpi-row':            return 84
+    case 'section-band':       return 58  // actual applyBlock return: y+58
+    case 'kpi-row':            return 76  // actual: bh(64)+12=76
     case 'data-table':         return Math.max(block.rows?.length || 0, 1) * 18 + 14
-    case 'policy-matrix':      return (block.rows?.length || 0) * 22 + 10
+    case 'policy-matrix':      return (block.rows?.length || 0) * 22 + (block.skipped?.length ? 20 : 0) + 10
     case 'subtitle':           return 22
     case 'text-block':         return Math.ceil((block.content?.length || 0) / 120) * 14 + 22
     case 'photo-placeholder':  return (block.height || 160) + 24
     case 'text-photo':         return (block.height || 160) + 24
     case 'esg-section-cover':  return 595
+    case 'sdg-grid': {
+      // Only selected goals appear; 4 per row, ≤130px tall tiles
+      const count = (block.selectedGoals || []).length
+      if (!count) return 0
+      const perRow = count <= 12 ? 4 : 5
+      const numRows = Math.ceil(count / perRow)
+      return numRows * 140 + (numRows - 1) * 10
+    }
     case 'image':              return 220
     case 'spacer':             return block.height || 16
     default:                   return 20
   }
 }
 
-// Pack B1–B11 sections onto as few pages as possible.
-// A new page is started when the next section wouldn't fit in the remaining space.
+// Split blocks into [fits-within-maxH, remainder].
+// Always includes at least one block in the first part.
+// Never ends a chunk on a bare subtitle — keeps subtitle with whatever follows it.
+function splitAt(blocks, maxH) {
+  let i = 0, h = 0
+  while (i < blocks.length) {
+    const bh = estimateBlockHeight(blocks[i])
+    if (i > 0 && h + bh > maxH) break
+    h += bh; i++
+  }
+  let n = Math.max(i, 1)
+  // Pull back past any trailing subtitle so it stays with its content
+  while (n > 1 && blocks[n - 1]?.type === 'subtitle') n--
+  return [blocks.slice(0, n), blocks.slice(n)]
+}
+
+// Pack B1–B11 sections onto pages, allowing large sections to span multiple pages.
+// Small sections are merged with adjacent ones when space permits.
 function packSections(sections) {
-  const USABLE_H = 490 // conservative usable height per page (landscape A4: footer + margins)
+  const USABLE_H    = 550
   const SECTION_GAP = 20
+  // Only attempt to overflow a section onto the current page if this much space remains.
+  // Prevents splitting after just a section-band header with no content below it.
+  const MIN_SPLIT_H = 140
+
   const pages = []
   let cur = null
 
-  for (const sec of sections) {
-    const secH = sec.blocks.reduce((h, b) => h + estimateBlockHeight(b), 0)
+  const flush = () => { if (cur) { pages.push(cur); cur = null } }
 
+  const merge = (title, badge, blocks) => {
+    const h = blocks.reduce((s, b) => s + estimateBlockHeight(b), 0)
     if (!cur) {
-      cur = { title: sec.title, badge: sec.badge, blocks: [...sec.blocks], usedH: secH }
-    } else if (cur.usedH + SECTION_GAP + secH <= USABLE_H) {
-      cur.blocks.push({ type: 'spacer', height: SECTION_GAP })
-      cur.blocks.push(...sec.blocks)
-      cur.usedH += SECTION_GAP + secH
-      const shortLabel = sec.badge
-      cur.title = cur.title.replace(/ — .*/, '') + ' · ' + shortLabel
-      cur.badge = cur.badge + '/' + shortLabel
+      cur = { title, badge, blocks: [...blocks], usedH: h }
     } else {
-      pages.push(cur)
-      cur = { title: sec.title, badge: sec.badge, blocks: [...sec.blocks], usedH: secH }
+      cur.blocks.push({ type: 'spacer', height: SECTION_GAP })
+      cur.blocks.push(...blocks)
+      cur.usedH += SECTION_GAP + h
+      cur.title = cur.title.replace(/ · .*$/, '') + ' · ' + badge
+      cur.badge = cur.badge + '/' + badge
     }
   }
 
-  if (cur) pages.push(cur)
+  // Place all blocks for a section, splitting across as many pages as needed.
+  // firstMaxH is the budget for the first chunk (may be smaller if filling a partial page).
+  const placeAll = (title, badge, blocks, firstMaxH) => {
+    let remaining = blocks
+    let maxH = firstMaxH
+    while (remaining.length) {
+      const [chunk, rest] = splitAt(remaining, maxH)
+      merge(title, badge, chunk)
+      if (rest.length) flush()
+      remaining = rest
+      maxH = USABLE_H
+    }
+  }
+
+  for (const sec of sections) {
+    const secH = sec.blocks.reduce((s, b) => s + estimateBlockHeight(b), 0)
+    const avail = cur ? USABLE_H - cur.usedH - SECTION_GAP : USABLE_H
+
+    if (secH <= avail) {
+      // Whole section fits in the remaining space on the current page
+      merge(sec.title, sec.badge, sec.blocks)
+    } else if (avail >= MIN_SPLIT_H) {
+      // Current page has meaningful space — fill it with the start of this section,
+      // then continue the rest on subsequent pages
+      placeAll(sec.title, sec.badge, sec.blocks, avail)
+    } else {
+      // Too little room left — start a fresh page for this section
+      flush()
+      placeAll(sec.title, sec.badge, sec.blocks, USABLE_H)
+    }
+  }
+
+  flush()
   return pages
 }
 
@@ -84,16 +141,35 @@ function buildESGDividerPage(letter, title, description, phId, imageSrc) {
 // ─── Top-level builder ────────────────────────────────────────────────────────
 
 export function buildAllPages(data) {
+  const ex = new Set(data.excludedSections || [])
+
   // Pack each ESG category's sections independently so they don't bleed across dividers
-  const generalSections = [buildB1Page(data), buildB2Page(data)].filter(Boolean)
-  const eSections = [buildB3Page(data), buildB4Page(data), buildB5Page(data), buildB6Page(data), buildB7Page(data)].filter(Boolean)
-  const sSections = [buildB8Page(data), buildB9Page(data), buildB10Page(data)].filter(Boolean)
-  const gSections = [buildB11Page(data)].filter(Boolean)
+  const generalSections = [
+    buildB1Page(data),
+    ex.has('B2') ? null : buildB2Page(data),
+  ].filter(Boolean)
+  const eSections = [
+    ex.has('B3') ? null : buildB3Page(data),
+    ex.has('B4') ? null : buildB4Page(data),
+    ex.has('B5') ? null : buildB5Page(data),
+    ex.has('B6') ? null : buildB6Page(data),
+    ex.has('B7') ? null : buildB7Page(data),
+  ].filter(Boolean)
+  const sSections = [
+    ex.has('B8')  ? null : buildB8Page(data),
+    ex.has('B9')  ? null : buildB9Page(data),
+    ex.has('B10') ? null : buildB10Page(data),
+  ].filter(Boolean)
+  const gSections = [
+    ex.has('B11') ? null : buildB11Page(data),
+  ].filter(Boolean)
 
   const generalPacked = packSections(generalSections)
   const ePacked       = packSections(eSections)
   const sPacked       = packSections(sSections)
   const gPacked       = packSections(gSections)
+
+  const sdgPage = buildSDGPage(data)
 
   // Assemble in order, inserting divider pages before each category group
   const allContentPages = [
@@ -116,6 +192,7 @@ export function buildAllPages(data) {
         'esg-g-photo', data.images?.esgGovernancePhoto),
       ...gPacked,
     ] : []),
+    ...(sdgPage ? [sdgPage] : []),
   ]
 
   // Badge → page-number map for the TOC (cover=1, toc=2, content starts at 3)
@@ -123,10 +200,12 @@ export function buildAllPages(data) {
   allContentPages.forEach((page, i) => {
     page.blocks
       .filter(b => b.type === 'section-band')
-      .forEach(b => { pageMap[b.badge] = i + 3 })
+      .forEach(b => { if (b.badge) pageMap[b.badge] = i + 3 })
   })
 
   const certPage = buildCertificationsPage(data)
+  // Certifications is appended after allContentPages, so its page number is calculated here
+  if (certPage) pageMap['CERT'] = allContentPages.length + 3
 
   return [
     buildCoverPage(data),
@@ -170,6 +249,8 @@ function buildB1Page(data) {
         ['Reporting Basis',  data.reportingBasis === 'individual' ? 'Individual' : data.reportingBasis === 'consolidated' ? 'Consolidated' : ''],
         ['Balance Sheet',    data.balanceSum ? `${Number(data.balanceSum).toLocaleString()} ${data.currency || ''}` : ''],
         ['Revenue',          data.revenue ? `${Number(data.revenue).toLocaleString()} ${data.currency || ''}` : ''],
+        ['Address',          data.address],
+        ['Website',          data.website],
         ['Contact',          [data.contactName, data.contactEmail].filter(Boolean).join('  ·  ')],
       )},
       ...(data.companyDescription ? [
@@ -184,42 +265,44 @@ function buildB1Page(data) {
 
 // B2 — Policies & Commitments
 function buildB2Page(data) {
-  const POLICY_FIELDS = ['policyClimate','policyPollution','policyWaterMarine','policyBiodiversity','policyCircular','policyOwnWorkforce','policyValueChain','policyCommunities','policyConsumers','policyGovernance']
-  if (!POLICY_FIELDS.some(f => data[f])) return null
-
   const TOPICS = [
-    ['Climate Change',   'policyClimate',     'policyClimatePublic',     'policyClimateTargets'],
-    ['Pollution',        'policyPollution',    'policyPollutionPublic',   'policyPollutionTargets'],
-    ['Water & Marine',   'policyWaterMarine',  'policyWaterMarinePublic', 'policyWaterMarineTargets'],
-    ['Biodiversity',     'policyBiodiversity', 'policyBiodiversityPublic','policyBiodiversityTargets'],
-    ['Circular Economy', 'policyCircular',     'policyCircularPublic',    'policyCircularTargets'],
-    ['Own Workforce',    'policyOwnWorkforce', 'policyOwnWorkforcePublic','policyOwnWorkforceTargets'],
-    ['Value Chain',      'policyValueChain',   'policyValueChainPublic',  'policyValueChainTargets'],
-    ['Communities',      'policyCommunities',  'policyCommunitiesPublic', 'policyCommunitiesTargets'],
-    ['Consumers',        'policyConsumers',    'policyConsumersPublic',   'policyConsumersTargets'],
-    ['Governance',       'policyGovernance',   'policyGovernancePublic',  'policyGovernanceTargets'],
+    ['Climate Change',   'policyClimate',     'policyClimatePublic',     'policyClimateTargets',    'E'],
+    ['Pollution',        'policyPollution',    'policyPollutionPublic',   'policyPollutionTargets',  'E'],
+    ['Water & Marine',   'policyWaterMarine',  'policyWaterMarinePublic', 'policyWaterMarineTargets','E'],
+    ['Biodiversity',     'policyBiodiversity', 'policyBiodiversityPublic','policyBiodiversityTargets','E'],
+    ['Circular Economy', 'policyCircular',     'policyCircularPublic',    'policyCircularTargets',   'E'],
+    ['Own Workforce',    'policyOwnWorkforce', 'policyOwnWorkforcePublic','policyOwnWorkforceTargets','S'],
+    ['Value Chain',      'policyValueChain',   'policyValueChainPublic',  'policyValueChainTargets', 'S'],
+    ['Communities',      'policyCommunities',  'policyCommunitiesPublic', 'policyCommunitiesTargets','S'],
+    ['Consumers',        'policyConsumers',    'policyConsumersPublic',   'policyConsumersTargets',  'S'],
+    ['Governance',       'policyGovernance',   'policyGovernancePublic',  'policyGovernanceTargets', 'G'],
   ]
 
-  const withPolicy  = TOPICS.filter(([, f])    => data[f] === 'yes' || data[f] === 'in-progress' || data[f] === 'in_progress').length
-  const publicCount = TOPICS.filter(([,, pf])  => data[pf] === 'yes').length
-  const withTargets = TOPICS.filter(([,,, tf]) => data[tf] === 'yes').length
+  const adopted  = TOPICS.filter(([, f]) => data[f] === 'yes' || data[f] === 'in-progress' || data[f] === 'in_progress')
+  const skipped  = TOPICS.filter(([, f]) => !adopted.some(a => a[1] === f)).map(([label]) => label)
+  if (!adopted.length) return null
+
+  const publicCount = adopted.filter(([,, pf])  => data[pf] === 'yes').length
+  const withTargets = adopted.filter(([,,, tf]) => data[tf] === 'yes').length
 
   return {
     title: 'B2 — Policies', badge: 'B2',
     blocks: [
       { type: 'section-band', badge: 'B2', title: 'Policies & Commitments' },
       { type: 'kpi-row', metrics: [
-        { label: 'Policies Adopted', value: withPolicy,  unit: `of ${TOPICS.length} topics` },
-        { label: 'Publicly Available', value: publicCount, unit: 'policies' },
-        { label: 'With Targets', value: withTargets, unit: 'topics' },
+        { label: 'Policies Adopted',   value: adopted.length,  unit: `of ${TOPICS.length} topics` },
+        { label: 'Publicly Available', value: publicCount,      unit: 'policies' },
+        { label: 'With Targets',       value: withTargets,      unit: 'topics' },
       ] },
-      { type: 'subtitle', text: 'Policy Matrix' },
-      { type: 'policy-matrix', rows: TOPICS.map(([label, f, pf, tf]) => ({
-        label,
-        status: data[f] || '',
-        isPublic: data[pf] === 'yes',
-        hasTargets: data[tf] === 'yes',
-      })) },
+      { type: 'policy-matrix',
+        rows: adopted.map(([label, f, pf, tf, cat]) => ({
+          label, category: cat,
+          status:     data[f]  || '',
+          isPublic:   data[pf] === 'yes',
+          hasTargets: data[tf] === 'yes',
+        })),
+        skipped,
+      },
     ],
   }
 }
@@ -484,7 +567,7 @@ function buildB9Page(data) {
         ['Sick Leave Days',          data.sickLeaveDays],
         ['Lost Days',                data.lostDays],
         ['OHS Management System',    yesNo(data.hasOHSManagementSystem)],
-        ['OHS Certification',        data.ohsCertification],
+        ['OHS Certification',        data.hasOHSManagementSystem === 'yes' ? data.ohsCertification : ''],
       )},
       ...(data.safetyNarrative ? [
         { type: 'subtitle', text: 'Safety Narrative' },
@@ -527,10 +610,28 @@ function buildB10Page(data) {
   }
 }
 
+// Appendix — UN Sustainable Development Goals (Verdensmål)
+function buildSDGPage(data) {
+  const goals = data.sdgGoals || []
+  if (!goals.length && !data.sdgNarrative) return null
+
+  return {
+    title: 'UN Sustainable Development Goals', badge: 'SDG', showFooter: true,
+    blocks: [
+      { type: 'section-band', badge: 'SDG', title: 'UN Sustainable Development Goals' },
+      { type: 'sdg-grid', selectedGoals: goals },
+      ...(data.sdgNarrative ? [
+        { type: 'subtitle', text: 'Our Approach to the Sustainable Development Goals' },
+        { type: 'text-block', content: strip(data.sdgNarrative) },
+      ] : []),
+    ],
+  }
+}
+
 // Appendix — Certifications & Standards
 function buildCertificationsPage(data) {
   const lines = (data.certificationsList || '').split('\n').map(s => s.trim()).filter(Boolean)
-  const ohsCert = data.ohsCertification
+  const ohsCert = data.hasOHSManagementSystem === 'yes' ? data.ohsCertification : null
 
   // Aggregate all certifications
   const certs = [...lines]
@@ -560,9 +661,9 @@ function buildCertificationsPage(data) {
   })
 
   return {
-    title: 'Certifications & Standards', badge: '', showFooter: true,
+    title: 'Certifications & Standards', badge: 'CERT', showFooter: true,
     blocks: [
-      { type: 'section-band', badge: '', title: 'Certifications & Standards' },
+      { type: 'section-band', badge: 'CERT', title: 'Certifications & Standards' },
       ...(certRows.length > 0 ? [
         { type: 'subtitle', text: 'Company Certifications & Permits' },
         { type: 'data-table', rows: certRows },

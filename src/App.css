@@ -655,3 +655,137 @@
   .topbar-inner { padding: 8px 12px; }
   .progress-pill { display: none; }
 }
+
+/* ── Not Relevant banner ── */
+.not-relevant-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--slate-50);
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius);
+  flex-wrap: wrap;
+}
+
+.not-relevant-bar--active {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.not-relevant-bar__msg {
+  font-size: 13px;
+  color: var(--slate-600);
+}
+
+.not-relevant-bar--active .not-relevant-bar__msg {
+  color: #92400e;
+}
+
+.not-relevant-bar__btn {
+  padding: 5px 12px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+  background: none;
+  border: 1.5px solid var(--slate-300);
+  color: var(--slate-600);
+}
+
+.not-relevant-bar__btn:hover {
+  background: var(--slate-100);
+  border-color: var(--slate-400);
+  color: var(--slate-800);
+}
+
+.not-relevant-bar__btn--include {
+  border-color: var(--green-400);
+  color: var(--green-700);
+  background: var(--green-50);
+}
+
+.not-relevant-bar__btn--include:hover {
+  background: var(--green-100);
+  border-color: var(--green-600);
+}
+
+/* ── Sidebar N/A indicator ── */
+.step-nav-item--na .step-nav-badge {
+  background: var(--slate-100);
+  color: var(--slate-400);
+}
+
+.step-nav-item--na .step-nav-label {
+  color: var(--slate-400);
+  text-decoration: line-through;
+  text-decoration-color: var(--slate-300);
+}
+
+.step-nav-na {
+  font-size: 10px;
+  font-weight: 700;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+/* ── Not Relevant confirmation dialog ── */
+.na-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.na-confirm {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.3);
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+}
+
+.na-confirm h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--slate-800);
+  margin-bottom: 10px;
+}
+
+.na-confirm p {
+  font-size: 13px;
+  color: var(--slate-600);
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+
+.na-confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn-na-confirm {
+  padding: 8px 16px;
+  background: #b45309;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-na-confirm:hover { background: #92400e; }

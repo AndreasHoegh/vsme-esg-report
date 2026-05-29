@@ -32,6 +32,9 @@ const STEPS = [
   { id: 'B11', label: 'Corp. Conduct', component: Step11_Governance },
 ]
 
+// Sections that should show a warning when excluded (social & governance disclosures)
+const MANDATORY_WARN = new Set(['B8', 'B9', 'B11'])
+
 function AppInner() {
   const { data, update, currentStep, setCurrentStep, completedSteps, clearDraft, loadDemo, lastSaved, completionPercent } = useForm()
   const [showEditor, setShowEditor] = useState(false)
@@ -43,6 +46,7 @@ function AppInner() {
   const [showAuth, setShowAuth] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showNewReportConfirm, setShowNewReportConfirm] = useState(false)
+  const [pendingExclude, setPendingExclude] = useState(null)
   const newReportRef = useRef(null)
   const [hasCanvasDraft, setHasCanvasDraft] = useState(() => !!localStorage.getItem('vsme_canvas_draft'))
   const [pendingCanvasDraft, setPendingCanvasDraft] = useState(null)
@@ -100,6 +104,24 @@ function AppInner() {
   const goPrev = () => {
     if (currentStep > 0) setCurrentStep(currentStep - 1)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function handleToggleExclusion(stepId) {
+    const excluded = data.excludedSections || []
+    if (excluded.includes(stepId)) {
+      update({ excludedSections: excluded.filter(s => s !== stepId) })
+    } else if (MANDATORY_WARN.has(stepId)) {
+      setPendingExclude(stepId)
+    } else {
+      update({ excludedSections: [...excluded, stepId] })
+    }
+  }
+
+  function confirmExclude() {
+    if (!pendingExclude) return
+    const excluded = data.excludedSections || []
+    update({ excludedSections: [...excluded, pendingExclude] })
+    setPendingExclude(null)
   }
 
   if (showEditor) {
@@ -211,17 +233,23 @@ function AppInner() {
               <button className="sidebar-close" onClick={() => setSidebarOpen(false)}>✕</button>
             </div>
             <nav className="step-nav">
-              {STEPS.map((s, i) => (
-                <button
-                  key={s.id}
-                  className={`step-nav-item${i === currentStep ? ' step-nav-item--active' : ''}${completedSteps.includes(i) ? ' step-nav-item--done' : ''}`}
-                  onClick={() => { setCurrentStep(i); setSidebarOpen(false); window.scrollTo({ top: 0 }) }}
-                >
-                  <span className="step-nav-badge">{s.id}</span>
-                  <span className="step-nav-label">{s.label}</span>
-                  {completedSteps.includes(i) && <span className="step-nav-check">✓</span>}
-                </button>
-              ))}
+              {STEPS.map((s, i) => {
+                const isExcluded = (data.excludedSections || []).includes(s.id)
+                return (
+                  <button
+                    key={s.id}
+                    className={`step-nav-item${i === currentStep ? ' step-nav-item--active' : ''}${completedSteps.includes(i) && !isExcluded ? ' step-nav-item--done' : ''}${isExcluded ? ' step-nav-item--na' : ''}`}
+                    onClick={() => { setCurrentStep(i); setSidebarOpen(false); window.scrollTo({ top: 0 }) }}
+                  >
+                    <span className="step-nav-badge">{s.id}</span>
+                    <span className="step-nav-label">{s.label}</span>
+                    {isExcluded
+                      ? <span className="step-nav-na">N/A</span>
+                      : completedSteps.includes(i) && <span className="step-nav-check">✓</span>
+                    }
+                  </button>
+                )
+              })}
             </nav>
 
             <div className="sidebar-footer">
@@ -260,6 +288,31 @@ function AppInner() {
         {/* Main content */}
         <main className="main">
           <div className="main-inner">
+            {currentStep > 0 && (() => {
+              const stepId = STEPS[currentStep].id
+              const isExcluded = (data.excludedSections || []).includes(stepId)
+              return (
+                <div className={`not-relevant-bar${isExcluded ? ' not-relevant-bar--active' : ''}`}>
+                  {isExcluded ? (
+                    <>
+                      <span className="not-relevant-bar__msg">
+                        <strong>Not included</strong> — this section is marked as not relevant and will be skipped in the report.
+                      </span>
+                      <button className="not-relevant-bar__btn not-relevant-bar__btn--include" onClick={() => handleToggleExclusion(stepId)}>
+                        Include in report
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="not-relevant-bar__msg">Not applicable to your company?</span>
+                      <button className="not-relevant-bar__btn" onClick={() => handleToggleExclusion(stepId)}>
+                        Mark as not relevant
+                      </button>
+                    </>
+                  )}
+                </div>
+              )
+            })()}
             <StepComponent />
 
             <div className="step-actions">
@@ -282,6 +335,22 @@ function AppInner() {
           </div>
         </main>
       </div>
+
+      {pendingExclude && (
+        <div className="na-confirm-overlay" onClick={() => setPendingExclude(null)}>
+          <div className="na-confirm" onClick={e => e.stopPropagation()}>
+            <h3>Mark {pendingExclude} as not relevant?</h3>
+            <p>
+              <strong>{STEPS.find(s => s.id === pendingExclude)?.label}</strong> is a commonly required VSME disclosure.
+              Excluding it means this section will not appear in the exported report.
+            </p>
+            <div className="na-confirm-actions">
+              <button className="btn-na-confirm" onClick={confirmExclude}>Exclude from report</button>
+              <button className="btn-ghost-sm" onClick={() => setPendingExclude(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCloud && (
         <CloudSyncModal

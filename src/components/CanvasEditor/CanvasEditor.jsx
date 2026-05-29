@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { fabric } from 'fabric'
 import jsPDF from 'jspdf'
 import { buildAllPages } from './pageBuilder'
+import { SDG_ICON_DATA, SDG_COLORS } from '../../data/sdgIcons'
 import './CanvasEditor.css'
 
 const CW = 842
@@ -208,6 +209,11 @@ async function applyBlock(canvas, block, config, y) {
         }
         y += 22
       })
+      if (block.skipped?.length) {
+        y += 4
+        canvas.add(tb(`No current policy on: ${block.skipped.join(' · ')}`, { left: ML+9, top: y, width: CONTENT_W, fontSize: 8, fill: '#94a3b8', fontStyle: 'italic' }))
+        y += 16
+      }
       return y + 6
     }
 
@@ -383,6 +389,45 @@ async function applyBlock(canvas, block, config, y) {
       return CH
     }
 
+    case 'sdg-grid': {
+      // Only render goals the company has selected
+      const selectedNums = (block.selectedGoals || []).map(Number).sort((a, b) => a - b)
+      if (!selectedNums.length) return y
+
+      // Adaptive grid: 4 per row for ≤12 goals, 5 for 13–17
+      const perRow = selectedNums.length <= 12 ? 4 : 5
+      const tileGap = 8
+      const tileW = Math.floor((CONTENT_W - tileGap * (perRow - 1)) / perRow)
+      const tileH = tileW  // square tiles — official icons are square
+      const numRows = Math.ceil(selectedNums.length / perRow)
+      const totalH = numRows * tileH + (numRows - 1) * tileGap
+
+      return new Promise(resolve => {
+        let pending = selectedNums.length
+        const done = () => { if (--pending === 0) { canvas.renderAll(); resolve(y + totalH + 14) } }
+
+        selectedNums.forEach((n, i) => {
+          const col = i % perRow, row = Math.floor(i / perRow)
+          const tx = ML + col * (tileW + tileGap)
+          const ty = y  + row * (tileH + tileGap)
+
+          // Official UN icon image — bundled as base64 so it always loads.
+          // sel() makes it a locked template object (not draggable by the user).
+          fabric.Image.fromURL(SDG_ICON_DATA[n], (fimg) => {
+            if (fimg && fimg.width) {
+              sel(fimg).set({ left: tx, top: ty, scaleX: tileW / fimg.width, scaleY: tileH / fimg.height })
+              canvas.add(fimg)
+            } else {
+              // Image failed — show plain coloured tile as fallback
+              canvas.add(sel(new fabric.Rect({ left: tx, top: ty, width: tileW, height: tileH,
+                fill: SDG_COLORS[n] || '#888', rx: 4, ry: 4, strokeWidth: 0 })))
+            }
+            done()
+          }, { crossOrigin: 'anonymous' })
+        })
+      })
+    }
+
     case 'spacer': return y + (block.height || 16)
     case 'cover':  return renderCoverBlock(canvas, block.data, config)
     case 'toc':    return renderTOCBlock(canvas, config, block.pageMap || {}, block.presentBadges)
@@ -464,6 +509,7 @@ function renderTOCBlock(canvas, config, pageMap, presentBadges) {
     ['B1','General Information'],['B2','Policies & Commitments'],['B3','Energy & GHG Emissions'],
     ['B4','Pollution'],['B5','Biodiversity'],['B6','Water'],['B7','Resources & Circular Economy'],
     ['B8','Own Workforce'],['B9','Health & Safety'],['B10','Pay & Training'],['B11','Corporate Conduct'],
+    ['SDG','UN Sustainable Development Goals'],['CERT','Certifications & Standards'],
   ]
   const SECTIONS = presentBadges ? ALL_SECTIONS.filter(([b]) => presentBadges.has(b)) : ALL_SECTIONS
 
@@ -474,25 +520,20 @@ function renderTOCBlock(canvas, config, pageMap, presentBadges) {
   canvas.add(tb('VSME Basic Module  ·  B1 – B11', { left: ML, top: 48, width: 400, fontSize: 9, fill: '#888888', fontFamily: fontPair.body }))
   canvas.add(sel(new fabric.Line([ML, 72, CW-ML, 72], { stroke: '#dddddd', strokeWidth: 0.5 })))
 
-  // Two-column layout for landscape
-  const gap = 40
-  const colW = Math.floor((CONTENT_W - gap) / 2)
-  const col2X = ML + colW + gap
-  const rowH = 28
-  const startY = 84
+  // Single column layout
+  const rowH = 34
+  const startY = 88
+  const bW_std = 22, bW_wide = 34  // badge pill width
 
   SECTIONS.forEach(([badge, title], i) => {
-    const col = i % 2
-    const row = Math.floor(i / 2)
-    const x = col === 0 ? ML : col2X
-    const y = startY + row * rowH
-    const bW = badge.length > 2 ? 30 : 22
+    const y = startY + i * rowH
+    const bW = badge.length > 2 ? bW_wide : bW_std
 
-    canvas.add(sel(new fabric.Rect({ left: x, top: y+3, width: bW, height: 16, fill: theme.primary, rx: 8, ry: 8, strokeWidth: 0, data: { tr: 'p' } })))
-    canvas.add(tb(badge, { left: x, top: y+5, width: bW, textAlign: 'center', fontSize: 7.5, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }))
-    canvas.add(tb(title, { left: x+bW+9, top: y+4, width: colW-bW-44, fontSize: 10, fill: '#334155', fontFamily: fontPair.body }))
-    canvas.add(tb(pageMap[badge] ? String(pageMap[badge]) : '—', { left: x+colW-32, top: y+4, width: 32, textAlign: 'right', fontSize: 10, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.body, data: { tr: 'pt' } }))
-    canvas.add(sel(new fabric.Line([x, y+rowH, x+colW, y+rowH], { stroke: '#eeeeee', strokeWidth: 0.5 })))
+    canvas.add(sel(new fabric.Rect({ left: ML, top: y+6, width: bW, height: 18, fill: theme.primary, rx: 9, ry: 9, strokeWidth: 0, data: { tr: 'p' } })))
+    canvas.add(tb(badge, { left: ML, top: y+8, width: bW, textAlign: 'center', fontSize: 7.5, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }))
+    canvas.add(tb(title, { left: ML+bW+10, top: y+7, width: CONTENT_W-bW-56, fontSize: 11, fill: '#334155', fontFamily: fontPair.body }))
+    canvas.add(tb(pageMap[badge] ? String(pageMap[badge]) : '—', { left: ML+CONTENT_W-36, top: y+7, width: 36, textAlign: 'right', fontSize: 11, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.body, data: { tr: 'pt' } }))
+    canvas.add(sel(new fabric.Line([ML, y+rowH, ML+CONTENT_W, y+rowH], { stroke: '#eeeeee', strokeWidth: 0.5 })))
   })
   return CH
 }
