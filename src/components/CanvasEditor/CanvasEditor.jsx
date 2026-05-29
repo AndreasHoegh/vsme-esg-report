@@ -611,11 +611,12 @@ async function waitForCanvasImages(canvas) {
 
 async function exportAllPagesToPDF(pages, allStates, config, companyName, reportingYear) {
   const { theme } = config
+  const EXPORT_SCALE = 3
   const exportEl = document.createElement('canvas')
-  exportEl.width = CW*2; exportEl.height = CH*2
+  exportEl.width = CW * EXPORT_SCALE; exportEl.height = CH * EXPORT_SCALE
   document.body.appendChild(exportEl)
-  const offscreen = new fabric.Canvas(exportEl, { width: CW*2, height: CH*2, backgroundColor: '#ffffff' })
-  offscreen.setZoom(2)
+  const offscreen = new fabric.Canvas(exportEl, { width: CW * EXPORT_SCALE, height: CH * EXPORT_SCALE, backgroundColor: '#ffffff' })
+  offscreen.setZoom(EXPORT_SCALE)
   const doc = new jsPDF({ format: 'a4', unit: 'mm', orientation: 'landscape' })
   for (let i = 0; i < pages.length; i++) {
     if (i > 0) doc.addPage()
@@ -624,7 +625,7 @@ async function exportAllPagesToPDF(pages, allStates, config, companyName, report
       const saved = allStates[i]
       if (saved) {
         offscreen.loadFromJSON(saved, async () => {
-          offscreen.setZoom(2)
+          offscreen.setZoom(EXPORT_SCALE)
           await waitForCanvasImages(offscreen)
           recolorCanvas(offscreen, theme)
           offscreen.renderAll()
@@ -635,7 +636,7 @@ async function exportAllPagesToPDF(pages, allStates, config, companyName, report
       }
     })
     await new Promise(r => setTimeout(r, 120))
-    doc.addImage(exportEl.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, 297, 210)
+    doc.addImage(exportEl.toDataURL('image/png'), 'PNG', 0, 0, 297, 210)
   }
   offscreen.dispose(); document.body.removeChild(exportEl)
   doc.save(`VSME_ESG_${(companyName||'Report').replace(/\s+/g,'_')}_${reportingYear||''}.pdf`)
