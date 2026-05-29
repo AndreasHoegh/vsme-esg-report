@@ -179,11 +179,16 @@ async function applyBlock(canvas, block, config, y) {
       const ROW_H = 20
       const singleCol = block.columns === 1
       const colW = singleCol ? CONTENT_W : Math.floor((CONTENT_W - 20) / 2)
+      let rowIdx = 0
       for (let i = 0; i < rows.length; i += singleCol ? 1 : 2) {
+        if (rowIdx % 2 === 0) {
+          canvas.add(sel(new fabric.Rect({ left: ML, top: y, width: CONTENT_W, height: ROW_H, fill: '#f8f9fa', strokeWidth: 0 })))
+        }
         makeDataRow(ML, y, colW, rows[i].label, rows[i].value).forEach(o => canvas.add(o))
         if (!singleCol && rows[i+1]) makeDataRow(ML + colW + 20, y, colW, rows[i+1].label, rows[i+1].value).forEach(o => canvas.add(o))
-        canvas.add(sel(new fabric.Line([ML, y+ROW_H, ML+CONTENT_W, y+ROW_H], { stroke: '#e0e0e0', strokeWidth: 0.5 })))
+        canvas.add(sel(new fabric.Line([ML, y+ROW_H, ML+CONTENT_W, y+ROW_H], { stroke: '#e8e8e8', strokeWidth: 0.5 })))
         y += ROW_H
+        rowIdx++
       }
       return y + 6
     }
