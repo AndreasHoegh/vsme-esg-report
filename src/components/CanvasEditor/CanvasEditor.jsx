@@ -482,7 +482,7 @@ function renderCoverESG365(canvas, data, config) {
 
   // Company name — large headline
   canvas.add(tb(data?.companyName || 'Company Name', {
-    left: ML, top: 112, width: leftW - 28, fontSize: 28, fontWeight: 'bold', fill: '#1a1a1a', fontFamily: fontPair.heading,
+    left: ML, top: 112, width: leftW - 56, fontSize: 28, fontWeight: 'bold', fill: '#1a1a1a', fontFamily: fontPair.heading,
   }))
 
   // Accent bar
@@ -490,7 +490,7 @@ function renderCoverESG365(canvas, data, config) {
 
   // Sector + Country
   const sub = [data?.sector, data?.country].filter(Boolean).join('  ·  ')
-  if (sub) canvas.add(tb(sub, { left: ML, top: 193, width: leftW - 28, fontSize: 9.5, fill: '#555555', fontFamily: fontPair.body }))
+  if (sub) canvas.add(tb(sub, { left: ML, top: 193, width: leftW - 56, fontSize: 9.5, fill: '#555555', fontFamily: fontPair.body }))
 
   // Company description excerpt
   const rawDesc = data?.companyDescription
@@ -499,22 +499,22 @@ function renderCoverESG365(canvas, data, config) {
   if (rawDesc) {
     const excerpt = rawDesc.length > 240 ? rawDesc.slice(0, 240) + '…' : rawDesc
     canvas.add(tb(excerpt, {
-      left: ML, top: 216, width: leftW - 28, fontSize: 8.5, fill: '#666666', lineHeight: 1.55, fontFamily: fontPair.body,
+      left: ML, top: 216, width: leftW - 56, fontSize: 8.5, fill: '#666666', lineHeight: 1.55, fontFamily: fontPair.body,
     }))
   }
 
   // Year + compliance note (lower section)
   canvas.add(tb(`Sustainability Report  ${data?.reportingYear || new Date().getFullYear()}`, {
-    left: ML, top: CH - 72, width: leftW - 28, fontSize: 8.5, fill: '#888888', fontStyle: 'italic', fontFamily: fontPair.body,
+    left: ML, top: CH - 72, width: leftW - 56, fontSize: 8.5, fill: '#888888', fontStyle: 'italic', fontFamily: fontPair.body,
   }))
   canvas.add(tb('Prepared in accordance with VSME Basic Module (B1–B11)', {
-    left: ML, top: CH - 56, width: leftW - 28, fontSize: 7.5, fill: '#aaaaaa', fontFamily: fontPair.body,
+    left: ML, top: CH - 56, width: leftW - 56, fontSize: 7.5, fill: '#aaaaaa', fontFamily: fontPair.body,
   }))
 
   // Contact info at bottom-left
   if (data?.contactName) {
     canvas.add(tb(data.contactName + (data?.contactEmail ? '  ·  ' + data.contactEmail : ''), {
-      left: ML, top: CH - 36, width: leftW - 28, fontSize: 7.5, fill: '#888888', fontFamily: fontPair.body,
+      left: ML, top: CH - 36, width: leftW - 56, fontSize: 7.5, fill: '#888888', fontFamily: fontPair.body,
     }))
   }
 
