@@ -440,7 +440,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 595px;
+  width: 842px;
   font-size: 10px;
   font-weight: 700;
   color: #475569;
@@ -519,17 +519,18 @@
   padding-top: 4px;
 }
 
-/* Narrow screens: scale everything down */
-@media (max-width: 820px) {
+/* Narrow screens: scale landscape canvas down */
+@media (max-width: 960px) {
   .ce-canvas-area {
     padding: 16px 12px 40px;
     gap: 20px;
     align-items: flex-start;
   }
   .ce-page-block {
-    transform: scale(0.7);
+    transform: scale(0.65);
     transform-origin: top left;
-    margin-bottom: calc(842px * -0.3); /* compensate for scaled height */
+    margin-bottom: calc(595px * -0.35); /* compensate for scaled height */
+    margin-right: calc(842px * -0.35); /* compensate for scaled width */
   }
 }
 

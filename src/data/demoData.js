@@ -1,4 +1,12 @@
-// Demo data: NordGreen Manufacturing A/S — fictional Danish metal components company
+// Demo SVG images — factory exterior, production floor, workforce
+const _coverSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 320"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a7d5c"/><stop offset="1" stop-color="#0a1f12"/></linearGradient></defs><rect width="500" height="320" fill="url(#g)"/><rect x="0" y="200" width="500" height="120" fill="#07110a" opacity=".65"/><rect x="20" y="135" width="90" height="185" fill="#0e2c1a" opacity=".95"/><rect x="140" y="90" width="130" height="230" fill="#0b2414" opacity=".95"/><rect x="305" y="145" width="95" height="175" fill="#0e2c1a" opacity=".95"/><rect x="430" y="160" width="70" height="160" fill="#0b2414" opacity=".9"/><rect x="38" y="90" width="12" height="50" fill="#060f0a"/><rect x="168" y="55" width="12" height="40" fill="#060f0a"/><rect x="192" y="62" width="10" height="34" fill="#060f0a"/><rect x="322" y="108" width="11" height="42" fill="#060f0a"/><rect x="35" y="160" width="16" height="13" fill="#5aaa80" opacity=".55"/><rect x="60" y="160" width="16" height="13" fill="#5aaa80" opacity=".45"/><rect x="35" y="183" width="16" height="13" fill="#5aaa80" opacity=".35"/><rect x="155" y="118" width="18" height="13" fill="#5aaa80" opacity=".55"/><rect x="184" y="118" width="18" height="13" fill="#5aaa80" opacity=".45"/><rect x="213" y="118" width="18" height="13" fill="#5aaa80" opacity=".35"/><rect x="155" y="141" width="18" height="13" fill="#5aaa80" opacity=".45"/><rect x="184" y="141" width="18" height="13" fill="#5aaa80" opacity=".5"/><rect x="320" y="168" width="16" height="13" fill="#5aaa80" opacity=".5"/><rect x="346" y="168" width="16" height="13" fill="#5aaa80" opacity=".4"/><rect x="0" y="290" width="500" height="30" fill="#276B4D" opacity=".12"/></svg>`
+
+const _companySVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 320"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#295e44"/><stop offset="1" stop-color="#0b1e12"/></linearGradient></defs><rect width="500" height="320" fill="url(#g)"/><polygon points="0,320 250,170 500,320" fill="#07130b" opacity=".55"/><rect x="60" y="165" width="75" height="155" fill="#102b19" rx="3"/><rect x="175" y="140" width="65" height="180" fill="#0d2415" rx="3"/><rect x="285" y="155" width="85" height="165" fill="#102b19" rx="3"/><rect x="410" y="168" width="55" height="152" fill="#0d2415" rx="3"/><rect x="60" y="165" width="75" height="5" fill="#276B4D" opacity=".7" rx="2"/><rect x="175" y="140" width="65" height="5" fill="#276B4D" opacity=".6" rx="2"/><rect x="285" y="155" width="85" height="5" fill="#276B4D" opacity=".7" rx="2"/><rect x="410" y="168" width="55" height="5" fill="#276B4D" opacity=".6" rx="2"/><rect x="95" y="38" width="6" height="88" fill="#3d8a62" opacity=".5"/><rect x="210" y="28" width="6" height="95" fill="#3d8a62" opacity=".45"/><rect x="330" y="33" width="6" height="90" fill="#3d8a62" opacity=".5"/><ellipse cx="98" cy="36" rx="14" ry="5" fill="#d8eee2" opacity=".5"/><ellipse cx="213" cy="26" rx="14" ry="5" fill="#d8eee2" opacity=".45"/><ellipse cx="333" cy="31" rx="14" ry="5" fill="#d8eee2" opacity=".5"/><rect x="80" y="190" width="14" height="11" fill="#5aaa80" opacity=".45"/><rect x="100" y="190" width="14" height="11" fill="#5aaa80" opacity=".4"/><rect x="190" y="168" width="14" height="11" fill="#5aaa80" opacity=".45"/><rect x="210" y="168" width="14" height="11" fill="#5aaa80" opacity=".4"/><rect x="300" y="180" width="14" height="11" fill="#5aaa80" opacity=".45"/><rect x="320" y="180" width="14" height="11" fill="#5aaa80" opacity=".4"/></svg>`
+
+const _workforceSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 320"><defs><linearGradient id="g" x1="0" y1="0" x2=".5" y2="1"><stop offset="0" stop-color="#346652"/><stop offset="1" stop-color="#0c1e13"/></linearGradient></defs><rect width="500" height="320" fill="url(#g)"/><rect x="0" y="185" width="500" height="135" fill="#09150d" opacity=".7"/><rect x="90" y="45" width="320" height="55" fill="#276B4D" opacity=".22" rx="4"/><rect x="100" y="55" width="200" height="3" fill="#6ab58c" opacity=".5"/><rect x="100" y="68" width="140" height="3" fill="#6ab58c" opacity=".4"/><ellipse cx="75" cy="148" rx="26" ry="26" fill="#0e2a1b"/><rect x="52" y="172" width="46" height="148" fill="#0e2a1b" rx="4"/><ellipse cx="165" cy="134" rx="26" ry="26" fill="#122e1e"/><rect x="142" y="158" width="46" height="162" fill="#122e1e" rx="4"/><ellipse cx="255" cy="140" rx="28" ry="28" fill="#0e2a1b"/><rect x="230" y="166" width="50" height="154" fill="#0e2a1b" rx="4"/><ellipse cx="345" cy="137" rx="25" ry="25" fill="#122e1e"/><rect x="323" y="160" width="44" height="160" fill="#122e1e" rx="4"/><ellipse cx="430" cy="145" rx="24" ry="24" fill="#0e2a1b"/><rect x="409" y="168" width="42" height="152" fill="#0e2a1b" rx="4"/><ellipse cx="75" cy="148" rx="26" ry="26" fill="#276B4D" opacity=".2"/><ellipse cx="255" cy="140" rx="28" ry="28" fill="#276B4D" opacity=".2"/><ellipse cx="430" cy="145" rx="24" ry="24" fill="#276B4D" opacity=".18"/></svg>`
+
+const _govSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 320"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#295e42"/><stop offset="1" stop-color="#091a0e"/></linearGradient></defs><rect width="500" height="320" fill="url(#g)"/><rect x="0" y="280" width="500" height="40" fill="#071510" opacity=".75"/><polygon points="110,140 250,55 390,140" fill="#0a2015" opacity=".9"/><rect x="130" y="140" width="240" height="180" fill="#0d2819" opacity=".95"/><rect x="145" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="178" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="211" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="244" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="277" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="310" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="343" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="108" y="275" width="284" height="8" fill="#0a1f12" opacity=".9"/><rect x="100" y="283" width="300" height="8" fill="#081510" opacity=".85"/><rect x="155" y="165" width="18" height="13" fill="#5aaa80" opacity=".4"/><rect x="190" y="165" width="18" height="13" fill="#5aaa80" opacity=".35"/><rect x="225" y="165" width="18" height="13" fill="#5aaa80" opacity=".4"/><rect x="260" y="165" width="18" height="13" fill="#5aaa80" opacity=".35"/><rect x="295" y="165" width="18" height="13" fill="#5aaa80" opacity=".4"/><rect x="330" y="165" width="18" height="13" fill="#5aaa80" opacity=".3"/><rect x="155" y="195" width="18" height="13" fill="#5aaa80" opacity=".3"/><rect x="225" y="195" width="18" height="13" fill="#5aaa80" opacity=".35"/><rect x="295" y="195" width="18" height="13" fill="#5aaa80" opacity=".3"/><rect x="215" y="245" width="70" height="75" fill="#081510" opacity=".9"/><rect x="226" y="255" width="20" height="35" fill="#276B4D" opacity=".2"/><rect x="254" y="255" width="20" height="35" fill="#276B4D" opacity=".15"/><rect x="240" y="80" width="20" height="62" fill="#122c1e" opacity=".75"/><rect x="225" y="68" width="50" height="16" fill="#122c1e" opacity=".7"/></svg>`
+
 const demoData = {
   // B1 General Information
   companyName: 'NordGreen Manufacturing A/S',
@@ -21,7 +29,7 @@ const demoData = {
   contactPhone: '+45 70 20 30 40',
   companyDescription: '<p>NordGreen Manufacturing A/S is a Danish metal fabrication company specialising in surface treatment and precision components for the automotive and industrial equipment sectors. Founded in 1991 and headquartered in Odense, we operate one production facility covering 18,400 m² and export to 14 countries across Europe.</p><p>Sustainability is central to our long-term business strategy. We are committed to reducing our environmental footprint, ensuring fair and safe working conditions, and maintaining the highest standards of corporate conduct.</p>',
 
-  // B2 Policies & Actions — 10 topic areas × 3 columns
+  // B2 Policies & Actions
   policyClimate: 'yes',
   policyClimatePublic: 'yes',
   policyClimateTargets: 'yes',
@@ -109,18 +117,16 @@ const demoData = {
   waterDischargeDestination: 'Municipal wastewater treatment plant (Odense NE WWTP)',
   waterNarrative: '<p>Water is primarily consumed in surface treatment rinsing cascades and cooling circuits. A closed-loop cooling tower upgrade in 2023 reduced make-up water demand by 18%. A new rinse-water recycling system installed in Q3 2024 now recirculates 1,240 m³ annually that would previously have been discharged. Denmark is classified as a low water-stress country; no operations draw from water-stressed catchments.</p>',
 
-  // B7 Resources, Circular Economy & Waste
+  // B7 Resources & Circular Economy
   usesCircularEconomy: 'yes',
   circularEconomyDescription: 'Metal swarf and off-cuts (steel, aluminium) are 100% sold to certified scrap metal recyclers under long-term agreements. Cardboard and plastic packaging from incoming components is sorted and collected for recycling. Chemical drums are returned to suppliers under a take-back scheme. We target zero waste to landfill by 2026.',
-  totalWasteGenerated: '312',
   wasteUnit: 'tonnes',
-  wasteHazardous: '18',
-  wasteNonHazardous: '294',
-  wasteRecycled: '268',
-  wasteRecycledForReuse: '24',
-  wasteToIncineration: '14',
-  wasteDisposedLandfill: '6',
-  materialFlowDescription: 'Primary input materials: steel coil (85% of material input by weight), aluminium sheet (10%), process chemicals (5%). Total material throughput 2024: ~4,800 tonnes.',
+  wasteTypes: [
+    { id: '1', typeKey: 'Metal scrap (steel/aluminium)', amount: '268', recycled: '268', hazardous: false },
+    { id: '2', typeKey: 'Hazardous chemical waste', amount: '18', recycled: '0', hazardous: true },
+    { id: '3', typeKey: 'Packaging (cardboard/plastic)', amount: '14', recycled: '12', hazardous: false },
+    { id: '4', typeKey: 'Mixed non-hazardous waste', amount: '12', recycled: '0', hazardous: false },
+  ],
   wasteNarrative: '<p>NordGreen achieved an 86% diversion rate from landfill in 2024, up from 79% in 2023. The remaining landfill disposal relates to contaminated mixed waste from maintenance activities for which no recycling route is currently available. Hazardous waste (spent electroplating solutions, solvents) is handled exclusively by licensed hazardous waste contractors in compliance with EU Waste Framework Directive requirements.</p>',
 
   // B8 Workforce
@@ -163,14 +169,24 @@ const demoData = {
   avgTrainingHoursFemale: '20',
   avgTrainingHoursOther: '',
   trainingInvestment: '186000',
-  payNarrative: '<p>All NordGreen employees receive remuneration above the applicable Danish minimum wage. 78% of employees are covered by a collective bargaining agreement with the Danish Metal Workers Union (Dansk Metal). The gender pay gap of 6.7% (female average salary as a percentage of male) reflects an underrepresentation of women in senior technical and management roles; a pay equity review was conducted in Q4 2024 and targeted adjustments totalling EUR 34,000 were made. Average training investment of EUR 753 per employee includes both mandatory safety training and technical skills development.</p>',
+  payNarrative: '<p>All NordGreen employees receive remuneration above the applicable Danish minimum wage. 78% of employees are covered by a collective bargaining agreement with the Danish Metal Workers Union (Dansk Metal). The gender pay gap of 6.7% reflects an underrepresentation of women in senior technical and management roles; a pay equity review was conducted in Q4 2024 and targeted adjustments totalling EUR 34,000 were made.</p>',
+
+  // Appendix — Certifications
+  certificationsList: 'ISO 50001:2018 - Energy Management System (certified by Bureau Veritas, valid to 2027)\nISO 45001:2018 - Occupational Health & Safety Management (certified by DNV, valid to 2026)\nISO 9001:2015 - Quality Management System (certified by TÜV SÜD, valid to 2026)\nEU ETS - EU Emissions Trading Scheme participant\nOdense Municipality Environmental Permit - Surface Treatment Operations (ref. OD-2021-0447)',
 
   // B11 Corporate Conduct
   corruptionConvictions: '0',
   corruptionFinesTotal: '0',
-  corruptionNarrative: '<p>NordGreen maintains a zero-tolerance policy on corruption, bribery, and anti-competitive behaviour, set out in our Code of Business Conduct (publicly available on our website). All employees complete mandatory e-learning on anti-corruption annually; completion rate was 97% in 2024. No cases of corruption or bribery were identified, investigated, or confirmed during the reporting year. No fines, penalties, or non-monetary sanctions for corporate misconduct were imposed. A confidential whistleblowing channel managed by an independent third party received two reports in 2024; both were assessed as unrelated to corruption or misconduct.</p>',
+  corruptionNarrative: '<p>NordGreen maintains a zero-tolerance policy on corruption, bribery, and anti-competitive behaviour, set out in our Code of Business Conduct. All employees complete mandatory e-learning on anti-corruption annually; completion rate was 97% in 2024. No cases of corruption or bribery were identified, investigated, or confirmed during the reporting year. A confidential whistleblowing channel received two reports in 2024; both were assessed as unrelated to corruption or misconduct.</p>',
 
-  images: {},
+  images: {
+    coverPhoto:          'data:image/svg+xml;base64,' + btoa(_coverSVG),
+    companyPhoto:        'data:image/svg+xml;base64,' + btoa(_companySVG),
+    workforcePhoto:      'data:image/svg+xml;base64,' + btoa(_workforceSVG),
+    esgEnvironmentPhoto: 'data:image/svg+xml;base64,' + btoa(_companySVG),
+    esgSocialPhoto:      'data:image/svg+xml;base64,' + btoa(_workforceSVG),
+    esgGovernancePhoto:  'data:image/svg+xml;base64,' + btoa(_govSVG),
+  },
 }
 
 export default demoData

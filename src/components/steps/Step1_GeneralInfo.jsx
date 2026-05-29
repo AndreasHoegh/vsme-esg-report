@@ -198,6 +198,23 @@ export default function Step1_GeneralInfo() {
           />
         </FormField>
       </section>
+
+      <section className="form-section">
+        <h3>Certifications &amp; Standards</h3>
+        <p className="section-desc">List any relevant certifications, permits, or standards your company holds. These will appear on a dedicated Certifications page at the end of your report.</p>
+        <FormField
+          label="Certifications (one per line)"
+          tooltip="Enter each certification on a new line, e.g. 'ISO 9001:2015 - Quality Management' or 'ISO 45001:2018 - OH&S (valid to 2026)'"
+        >
+          <textarea
+            className="form-textarea"
+            rows={6}
+            value={data.certificationsList || ''}
+            onChange={e => update({ certificationsList: e.target.value })}
+            placeholder={'ISO 9001:2015 - Quality Management System\nISO 45001:2018 - Occupational Health & Safety\nISO 14001:2015 - Environmental Management'}
+          />
+        </FormField>
+      </section>
     </div>
   )
 }

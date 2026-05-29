@@ -4,10 +4,11 @@ import jsPDF from 'jspdf'
 import { buildAllPages } from './pageBuilder'
 import './CanvasEditor.css'
 
-const CW = 595
+const CW = 842
 const CANVAS_STORAGE_KEY = 'vsme_canvas_draft'
-const CH = 842
-const ML = 22
+const USER_OBJECTS_KEY   = 'vsme_canvas_user_objects'
+const CH = 595
+const ML = 30
 const CONTENT_W = CW - ML * 2
 
 const FONTS = ['Arial', 'Georgia', 'Times New Roman', 'Courier New', 'Trebuchet MS', 'Verdana']
@@ -15,18 +16,12 @@ const FONT_SIZES = [7, 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48]
 
 const THEMES = [
   { id: 'navy',   label: 'Navy',    primary: '#112a57', light: '#e8eef7', dark: '#07111e' },
-  { id: 'green',  label: 'Forest',  primary: '#16a34a', light: '#dcfce7', dark: '#14532d' },
+  { id: 'green',  label: 'Forest',  primary: '#276B4D', light: '#e8f2ed', dark: '#1a4530' },
   { id: 'blue',   label: 'Ocean',   primary: '#2563eb', light: '#dbeafe', dark: '#1e3a8a' },
   { id: 'purple', label: 'Dusk',    primary: '#7c3aed', light: '#ede9fe', dark: '#4c1d95' },
   { id: 'slate',  label: 'Minimal', primary: '#334155', light: '#f1f5f9', dark: '#0f172a' },
 ]
 
-const REPORT_STYLES = [
-  { id: 'modern',  label: 'Modern'  },
-  { id: 'bold',    label: 'Bold'    },
-  { id: 'minimal', label: 'Minimal' },
-  { id: 'dark',    label: 'Dark'    },
-]
 
 const FONT_PAIRS = [
   { id: 'editorial', label: 'Editorial', heading: 'Georgia',         body: 'Arial'   },
@@ -87,179 +82,66 @@ function tb(text, opts = {}) {
   return sel(new fabric.Textbox(String(text ?? ''), { fontFamily: 'Arial', editable: true, lockScalingY: false, lockScalingX: false, ...opts }))
 }
 
-// ─── Style-aware section band ────────────────────────────────────────────────
+// ─── Section band ────────────────────────────────────────────────────────────
 
 function makeSectionBand(badge, title, config, y) {
-  const { theme, fontPair, reportStyle } = config
+  const { theme, fontPair } = config
   const H = 50
-  const bw = badge.length > 2 ? 30 : 24
-
-  if (reportStyle === 'bold') {
-    return [
-      sel(new fabric.Rect({ left: 0, top: y, width: CW, height: H, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })),
-      sel(new fabric.Circle({ left: CW - 55, top: y - 70, radius: 140, fill: 'rgba(255,255,255,0.055)', strokeWidth: 0 })),
-      sel(new fabric.Circle({ left: -10, top: y + H - 18, radius: 36, fill: 'rgba(255,255,255,0.045)', strokeWidth: 0 })),
-      sel(new fabric.Rect({ left: 0, top: y + H - 3, width: CW, height: 3, fill: 'rgba(255,255,255,0.13)', strokeWidth: 0 })),
-      sel(new fabric.Rect({ left: ML, top: y + 16, width: bw, height: 18, fill: 'rgba(255,255,255,0.22)', rx: 4, ry: 4, strokeWidth: 0 })),
-      tb(badge, { left: ML, top: y + 17.5, width: bw, textAlign: 'center', fontSize: 8.5, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }),
-      tb(title, { left: ML + bw + 10, top: y + 13, width: CW - ML - bw - 20, fontSize: 16, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.heading, editable: true, data: { type: 'section-title' } }),
-    ]
-  }
-
-  if (reportStyle === 'minimal') {
-    return [
-      sel(new fabric.Rect({ left: 0, top: y, width: CW, height: H, fill: '#ffffff', strokeWidth: 0 })),
-      sel(new fabric.Rect({ left: 0, top: y, width: 4, height: H, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })),
-      sel(new fabric.Rect({ left: ML, top: y + 15, width: bw, height: 16, fill: theme.primary, rx: 4, ry: 4, strokeWidth: 0, data: { tr: 'p' } })),
-      tb(badge, { left: ML, top: y + 17, width: bw, textAlign: 'center', fontSize: 8, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }),
-      tb(title, { left: ML + bw + 10, top: y + 15, width: CW - ML - bw - 24, fontSize: 15, fontWeight: '600', fill: '#1e293b', fontFamily: fontPair.heading, editable: true, data: { type: 'section-title' } }),
-      sel(new fabric.Line([0, y + H, CW, y + H], { stroke: '#e2e8f0', strokeWidth: 0.6 })),
-    ]
-  }
-
-  if (reportStyle === 'dark') {
-    return [
-      sel(new fabric.Rect({ left: 0, top: y, width: CW, height: H, fill: theme.dark, strokeWidth: 0, data: { tr: 'd' } })),
-      sel(new fabric.Circle({ left: CW - 30, top: y - 30, radius: 80, fill: 'rgba(255,255,255,0.04)', strokeWidth: 0 })),
-      sel(new fabric.Rect({ left: 0, top: y + H - 3, width: CW, height: 3, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })),
-      sel(new fabric.Rect({ left: ML, top: y + 15, width: bw, height: 18, fill: theme.primary, rx: 3, ry: 3, strokeWidth: 0, data: { tr: 'p' } })),
-      tb(badge, { left: ML, top: y + 16.5, width: bw, textAlign: 'center', fontSize: 9, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }),
-      tb(title, { left: ML + bw + 10, top: y + 13, width: CW - ML - bw - 20, fontSize: 15, fontWeight: '600', fill: '#ffffff', fontFamily: fontPair.heading, editable: true, data: { type: 'section-title' } }),
-    ]
-  }
-
-  // modern (default) — split panel
-  const leftW = 72
-  return [
-    sel(new fabric.Rect({ left: 0, top: y, width: leftW, height: H, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })),
-    sel(new fabric.Rect({ left: leftW, top: y, width: CW - leftW, height: H, fill: theme.light, strokeWidth: 0, data: { tr: 'l' } })),
-    sel(new fabric.Circle({ left: leftW - 18, top: y + H / 2 - 18, radius: 30, fill: 'rgba(255,255,255,0.07)', strokeWidth: 0 })),
-    tb(badge, { left: 0, top: y + (badge.length > 2 ? 18 : 16), width: leftW, textAlign: 'center', fontSize: badge.length > 2 ? 11 : 13, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.heading }),
-    tb(title, { left: leftW + 14, top: y + 15, width: CW - leftW - 24, fontSize: 15, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.heading, editable: true, data: { tr: 'pt', type: 'section-title' } }),
-    sel(new fabric.Line([0, y + H, CW, y + H], { stroke: theme.primary, strokeWidth: 0.4, opacity: 0.25, data: { tr: 'ps' } })),
+  const hasBadge = badge && badge.length > 0
+  const bw = badge && badge.length > 2 ? 34 : 26
+  const titleX = hasBadge ? ML + bw + 12 : ML
+  const objs = [
+    sel(new fabric.Rect({ left: 0, top: y, width: CW, height: H, fill: '#ffffff', strokeWidth: 0 })),
   ]
-}
-
-// ─── Style-aware KPI box ─────────────────────────────────────────────────────
-
-function makeKpiBox(x, y, w, h, metric, config) {
-  const { theme, fontPair, reportStyle } = config
-  const valStr = String(metric.value ?? '—')
-  const vfs = Math.min(20, Math.max(10, Math.round(22 - valStr.length * 1.2)))
-
-  if (reportStyle === 'bold') {
-    return [
-      sel(new fabric.Rect({ left: x, top: y, width: w, height: h, fill: theme.primary, rx: 6, ry: 6, strokeWidth: 0, data: { tr: 'p' } })),
-      tb(valStr, { left: x+4, top: y+10, width: w-8, textAlign: 'center', fontSize: vfs, fontWeight: 'bold', fill: '#ffffff', fontFamily: fontPair.heading }),
-      tb(String(metric.unit||''), { left: x+4, top: y+38, width: w-8, textAlign: 'center', fontSize: 7, fill: 'rgba(255,255,255,0.65)' }),
-      tb(metric.label, { left: x+4, top: y+48, width: w-8, textAlign: 'center', fontSize: 7, fontWeight: '600', fill: 'rgba(255,255,255,0.82)' }),
-    ]
+  if (hasBadge) {
+    objs.push(sel(new fabric.Rect({ left: ML, top: y + 14, width: bw, height: 19, fill: theme.primary, rx: 9, ry: 9, strokeWidth: 0, data: { tr: 'p' } })))
+    objs.push(tb(badge, { left: ML, top: y + 16, width: bw, textAlign: 'center', fontSize: 8, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }))
   }
-
-  if (reportStyle === 'minimal') {
-    return [
-      sel(new fabric.Rect({ left: x, top: y, width: w, height: h, fill: '#ffffff', rx: 6, ry: 6, stroke: theme.primary, strokeWidth: 1, data: { tr: 'ps' } })),
-      tb(valStr, { left: x+4, top: y+10, width: w-8, textAlign: 'center', fontSize: vfs, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.heading, data: { tr: 'pt' } }),
-      tb(String(metric.unit||''), { left: x+4, top: y+38, width: w-8, textAlign: 'center', fontSize: 7, fill: '#94a3b8' }),
-      tb(metric.label, { left: x+4, top: y+48, width: w-8, textAlign: 'center', fontSize: 7, fontWeight: '600', fill: '#64748b' }),
-    ]
-  }
-
-  if (reportStyle === 'dark') {
-    return [
-      sel(new fabric.Rect({ left: x, top: y, width: w, height: h, fill: theme.dark, rx: 6, ry: 6, strokeWidth: 0, data: { tr: 'd' } })),
-      sel(new fabric.Rect({ left: x, top: y+h-3, width: w, height: 3, fill: theme.primary, rx: 0, strokeWidth: 0, data: { tr: 'p' } })),
-      tb(valStr, { left: x+4, top: y+10, width: w-8, textAlign: 'center', fontSize: vfs, fontWeight: 'bold', fill: '#ffffff', fontFamily: fontPair.heading }),
-      tb(String(metric.unit||''), { left: x+4, top: y+38, width: w-8, textAlign: 'center', fontSize: 7, fill: 'rgba(255,255,255,0.5)' }),
-      tb(metric.label, { left: x+4, top: y+48, width: w-8, textAlign: 'center', fontSize: 7, fontWeight: '600', fill: 'rgba(255,255,255,0.7)' }),
-    ]
-  }
-
-  // modern (default) — light bg, top accent
-  return [
-    sel(new fabric.Rect({ left: x, top: y, width: w, height: h, fill: theme.light, rx: 6, ry: 6, strokeWidth: 0, data: { tr: 'l' } })),
-    sel(new fabric.Rect({ left: x, top: y, width: w, height: 3, fill: theme.primary, rx: 0, strokeWidth: 0, data: { tr: 'p' } })),
-    sel(new fabric.Rect({ left: x, top: y, width: w, height: h, fill: 'transparent', rx: 6, ry: 6, stroke: theme.primary, strokeWidth: 0.5, opacity: 0.2, data: { tr: 'ps' } })),
-    tb(valStr, { left: x+4, top: y+10, width: w-8, textAlign: 'center', fontSize: vfs, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.heading, data: { tr: 'pt' } }),
-    tb(String(metric.unit||''), { left: x+4, top: y+38, width: w-8, textAlign: 'center', fontSize: 7, fill: '#94a3b8' }),
-    tb(metric.label, { left: x+4, top: y+48, width: w-8, textAlign: 'center', fontSize: 7, fontWeight: '600', fill: '#64748b' }),
-  ]
-}
-
-function makeDataRow(x, y, w, label, value, shade) {
-  const H = 18, objs = []
-  if (shade) objs.push(sel(new fabric.Rect({ left: x, top: y, width: w, height: H, fill: '#f8fafc', strokeWidth: 0 })))
-  objs.push(sel(new fabric.Line([x, y+H, x+w, y+H], { stroke: '#edf0f4', strokeWidth: 0.6 })))
-  objs.push(tb(label,                { left: x+8,       top: y+4, width: w*0.55,      fontSize: 8.5, fill: '#64748b' }))
-  objs.push(tb(String(value || '—'), { left: x+w*0.55,  top: y+4, width: w*0.45-8,   fontSize: 8.5, fontWeight: '600', fill: '#1e293b', textAlign: 'right' }))
+  objs.push(tb(title, { left: titleX, top: y + 11, width: CW - titleX - 42, fontSize: 18, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.heading, editable: true, data: { tr: 'pt', type: 'section-title' } }))
+  objs.push(sel(new fabric.Line([ML, y + H, CW - ML, y + H], { stroke: theme.primary, strokeWidth: 0.8, opacity: 0.3, data: { tr: 'ps' } })))
   return objs
 }
 
-// ─── Style-aware subtitle ────────────────────────────────────────────────────
+// ─── KPI box ─────────────────────────────────────────────────────────────────
 
-function makeSubtitle(x, y, text, config) {
-  const { theme, fontPair, reportStyle } = config
-
-  if (reportStyle === 'bold') {
-    return [
-      sel(new fabric.Rect({ left: 0, top: y, width: CW, height: 22, fill: theme.light, strokeWidth: 0, data: { tr: 'l' } })),
-      sel(new fabric.Rect({ left: 0, top: y, width: 5, height: 22, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })),
-      tb(text.toUpperCase(), { left: x+10, top: y+4, width: CONTENT_W-10, fontSize: 8.5, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.heading, charSpacing: 80, data: { tr: 'pt' } }),
-    ]
-  }
-
-  if (reportStyle === 'minimal') {
-    return [
-      tb(text.toUpperCase(), { left: x, top: y+2, width: CONTENT_W, fontSize: 8, fontWeight: 'bold', fill: '#94a3b8', fontFamily: fontPair.body, charSpacing: 100 }),
-      sel(new fabric.Line([x, y+17, x+CONTENT_W, y+17], { stroke: '#e2e8f0', strokeWidth: 0.6 })),
-    ]
-  }
-
-  if (reportStyle === 'dark') {
-    return [
-      sel(new fabric.Rect({ left: x, top: y, width: 4, height: 14, fill: theme.dark, rx: 2, ry: 2, strokeWidth: 0, data: { tr: 'd' } })),
-      tb(text.toUpperCase(), { left: x+10, top: y+1, width: CONTENT_W-10, fontSize: 8.5, fontWeight: 'bold', fill: theme.dark, fontFamily: fontPair.heading, charSpacing: 80, data: { tr: 'dt' } }),
-      sel(new fabric.Line([x+10, y+17, x+CONTENT_W, y+17], { stroke: '#e2e8f0', strokeWidth: 0.5 })),
-    ]
-  }
-
-  // modern
+function makeKpiBox(x, y, w, h, metric, config) {
+  const { theme, fontPair } = config
+  const valStr = String(metric.value ?? '—')
+  const vfs = Math.min(22, Math.max(11, Math.round(24 - valStr.length * 1.4)))
   return [
-    sel(new fabric.Rect({ left: x, top: y, width: 4, height: 14, fill: theme.primary, rx: 2, ry: 2, strokeWidth: 0, data: { tr: 'p' } })),
-    tb(text.toUpperCase(), { left: x+10, top: y+1, width: CONTENT_W-10, fontSize: 8.5, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.heading, charSpacing: 80, data: { tr: 'pt' } }),
-    sel(new fabric.Line([x+10, y+17, x+CONTENT_W, y+17], { stroke: theme.primary, strokeWidth: 0.4, opacity: 0.22, data: { tr: 'ps' } })),
+    sel(new fabric.Rect({ left: x, top: y, width: w, height: h, fill: '#f5f5f5', rx: 4, ry: 4, strokeWidth: 0 })),
+    tb(valStr, { left: x+6, top: y+8, width: w-12, textAlign: 'center', fontSize: vfs, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.heading, data: { tr: 'pt' } }),
+    tb(String(metric.unit||''), { left: x+6, top: y+36, width: w-12, textAlign: 'center', fontSize: 7, fill: '#888888' }),
+    tb(metric.label, { left: x+6, top: y+48, width: w-12, textAlign: 'center', fontSize: 7.5, fontWeight: '600', fill: '#555555' }),
   ]
 }
 
-// ─── Style-aware footer ──────────────────────────────────────────────────────
+function makeDataRow(x, y, w, label, value) {
+  const H = 18, objs = []
+  objs.push(sel(new fabric.Line([x, y+H, x+w, y+H], { stroke: '#e0e0e0', strokeWidth: 0.5 })))
+  objs.push(tb(label,                { left: x+4,       top: y+4, width: w*0.58,      fontSize: 8.5, fill: '#555555' }))
+  objs.push(tb(String(value || '—'), { left: x+w*0.58,  top: y+4, width: w*0.42-4,   fontSize: 8.5, fontWeight: '600', fill: '#1a1a1a', textAlign: 'right' }))
+  return objs
+}
+
+// ─── Subtitle ────────────────────────────────────────────────────────────────
+
+function makeSubtitle(x, y, text, config) {
+  const { fontPair } = config
+  return [
+    tb(text.toUpperCase(), { left: x, top: y+2, width: CONTENT_W, fontSize: 7.5, fontWeight: 'bold', fill: '#888888', fontFamily: fontPair.body, charSpacing: 100 }),
+    sel(new fabric.Line([x, y+16, x+CONTENT_W, y+16], { stroke: '#dddddd', strokeWidth: 0.5 })),
+  ]
+}
+
+// ─── Footer ──────────────────────────────────────────────────────────────────
 
 function makeFooter(pageNum, company, config) {
-  const { theme, fontPair, reportStyle } = config
-
-  if (reportStyle === 'minimal') {
-    return [
-      sel(new fabric.Rect({ left: 0, top: CH-22, width: CW, height: 22, fill: theme.light, strokeWidth: 0, data: { tr: 'l' } })),
-      sel(new fabric.Line([0, CH-22, CW, CH-22], { stroke: theme.primary, strokeWidth: 0.5, data: { tr: 'ps' } })),
-      tb(company || 'VSME ESG Report', { left: ML, top: CH-17, width: 260, fontSize: 7, fill: theme.primary, fontFamily: fontPair.body, data: { tr: 'pt' } }),
-      tb(String(pageNum), { left: CW-ML-30, top: CH-17, width: 30, textAlign: 'right', fontSize: 7, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.body, data: { tr: 'pt' } }),
-    ]
-  }
-
-  if (reportStyle === 'dark') {
-    return [
-      sel(new fabric.Rect({ left: 0, top: CH-22, width: CW, height: 22, fill: theme.dark, strokeWidth: 0, data: { tr: 'd' } })),
-      sel(new fabric.Rect({ left: 0, top: CH-22, width: CW, height: 2, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })),
-      tb(company || 'VSME ESG Report', { left: ML, top: CH-17, width: 260, fontSize: 7, fill: 'rgba(255,255,255,0.6)', fontFamily: fontPair.body }),
-      tb(String(pageNum), { left: CW-ML-30, top: CH-17, width: 30, textAlign: 'right', fontSize: 7, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }),
-    ]
-  }
-
-  // modern & bold
+  const { fontPair } = config
   return [
-    sel(new fabric.Rect({ left: 0, top: CH-22, width: CW, height: 22, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })),
-    sel(new fabric.Rect({ left: 0, top: CH-22, width: CW, height: 1.5, fill: 'rgba(255,255,255,0.15)', strokeWidth: 0 })),
-    tb(company || 'VSME ESG Report', { left: ML, top: CH-17, width: 260, fontSize: 7, fill: 'rgba(255,255,255,0.72)', fontFamily: fontPair.body }),
-    tb(String(pageNum), { left: CW-ML-30, top: CH-17, width: 30, textAlign: 'right', fontSize: 7, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }),
+    sel(new fabric.Line([ML, CH-18, CW-ML, CH-18], { stroke: '#cccccc', strokeWidth: 0.5 })),
+    tb(company || 'ESG Report', { left: ML, top: CH-15, width: 300, fontSize: 7, fill: '#999999', fontFamily: fontPair.body }),
+    tb(String(pageNum), { left: CW-ML-30, top: CH-15, width: 30, textAlign: 'right', fontSize: 7, fill: '#999999', fontFamily: fontPair.body }),
   ]
 }
 
@@ -270,7 +152,7 @@ async function renderPage(canvas, pageSpec, config, pageNum, companyName) {
   canvas.backgroundColor = '#ffffff'
   let y = 0
   for (const block of pageSpec.blocks) y = await applyBlock(canvas, block, config, y)
-  if (pageSpec.badge) makeFooter(pageNum, companyName, config).forEach(o => canvas.add(o))
+  if (pageSpec.badge || pageSpec.showFooter) makeFooter(pageNum, companyName, config).forEach(o => canvas.add(o))
   canvas.renderAll()
 }
 
@@ -282,9 +164,9 @@ async function applyBlock(canvas, block, config, y) {
       return y + 58
 
     case 'kpi-row': {
-      const metrics = (block.metrics || []).slice(0, 4)
+      const metrics = (block.metrics || []).slice(0, 5)
       if (!metrics.length) return y
-      const gap = 6, bh = 64
+      const gap = 8, bh = 64
       const bw = (CONTENT_W - gap * (metrics.length - 1)) / metrics.length
       metrics.forEach((m, i) => makeKpiBox(ML + i*(bw+gap), y, bw, bh, m, config).forEach(o => canvas.add(o)))
       return y + bh + 12
@@ -293,7 +175,7 @@ async function applyBlock(canvas, block, config, y) {
     case 'data-table': {
       const rows = block.rows || []
       if (!rows.length) return y
-      rows.forEach((r, i) => { makeDataRow(ML, y, CONTENT_W, r.label, r.value, i%2===0).forEach(o => canvas.add(o)); y += 18 })
+      rows.forEach(r => { makeDataRow(ML, y, CONTENT_W, r.label, r.value).forEach(o => canvas.add(o)); y += 18 })
       return y + 6
     }
 
@@ -303,8 +185,8 @@ async function applyBlock(canvas, block, config, y) {
       rows.forEach(row => {
         const isYes = row.status === 'yes'
         const isIP  = row.status === 'in_progress' || row.status === 'in-progress'
-        const bg  = isYes ? '#f0fdf4' : isIP ? '#fffbeb' : '#f8fafc'
-        const ac  = isYes ? '#16a34a' : isIP ? '#d97706' : '#94a3b8'
+        const bg  = isYes ? theme.light : isIP ? '#fffbeb' : '#f8fafc'
+        const ac  = isYes ? theme.primary : isIP ? '#d97706' : '#94a3b8'
         canvas.add(sel(new fabric.Rect({ left: ML, top: y, width: CONTENT_W, height: 22, fill: bg, strokeWidth: 0 })))
         canvas.add(sel(new fabric.Rect({ left: ML, top: y, width: 3, height: 22, fill: ac, strokeWidth: 0 })))
         canvas.add(sel(new fabric.Line([ML, y+22, ML+CONTENT_W, y+22], { stroke: '#e8ecf0', strokeWidth: 0.5 })))
@@ -336,11 +218,83 @@ async function applyBlock(canvas, block, config, y) {
     case 'text-block': {
       const content = (block.content || '').trim()
       if (!content) return y
-      const t = tb(content, { left: ML+12, top: y+2, width: CONTENT_W-12, fontSize: 9.5, fill: '#334155', lineHeight: 1.65 })
+      const t = tb(content, { left: ML, top: y+2, width: CONTENT_W, fontSize: 9.5, fill: '#444444', lineHeight: 1.7 })
       const h = t.getScaledHeight()
-      canvas.add(sel(new fabric.Rect({ left: ML, top: y+2, width: 3, height: h, fill: theme.light, rx: 1, ry: 1, strokeWidth: 0, data: { tr: 'l' } })))
       canvas.add(t)
       return y + h + 14
+    }
+
+    case 'photo-placeholder': {
+      const phW = block.width || CONTENT_W
+      const phH = block.height || 160
+      const phX = block.x !== undefined ? block.x : ML
+      const phId = block.phId || `ph-${Math.round(y)}`
+      if (block.imageSrc) {
+        return new Promise(resolve => {
+          const img = new Image()
+          img.onload = () => {
+            const fimg = new fabric.Image(img)
+            const scale = Math.min(phW / fimg.width, phH / fimg.height)
+            fimg.set({ left: phX, top: y, scaleX: scale, scaleY: scale, data: { type: 'image-block', phId } })
+            sel(fimg); canvas.add(fimg); canvas.renderAll()
+            resolve(y + phH + 12)
+          }
+          img.onerror = () => resolve(y + phH + 12)
+          img.src = block.imageSrc
+        })
+      }
+      canvas.add(sel(new fabric.Rect({
+        left: phX, top: y, width: phW, height: phH,
+        fill: '#f0f0f0', strokeWidth: 1.5, stroke: '#cccccc',
+        strokeDashArray: [8, 4], rx: 4, ry: 4,
+        data: { type: 'photo-placeholder', phId },
+      })))
+      canvas.add(tb('Double-click to add photo', {
+        left: phX, top: y + phH/2 - 8, width: phW,
+        textAlign: 'center', fontSize: 9, fill: '#bbbbbb',
+        fontFamily: 'Arial', editable: false,
+        data: { type: 'photo-label', phId },
+      }))
+      return y + phH + 12
+    }
+
+    case 'text-photo': {
+      const textW = Math.round(CONTENT_W * 0.52)
+      const phW = Math.round(CONTENT_W * 0.44)
+      const phX = ML + textW + Math.round(CONTENT_W * 0.04)
+      const phH = block.height || 160
+      const phId = block.phId || `ph-tp-${Math.round(y)}`
+      const content = (block.content || '').trim()
+      if (content) {
+        canvas.add(tb(content, { left: ML, top: y+2, width: textW-8, fontSize: 9.5, fill: '#444444', lineHeight: 1.7 }))
+      }
+      if (block.imageSrc) {
+        return new Promise(resolve => {
+          const img = new Image()
+          img.onload = () => {
+            const fimg = new fabric.Image(img)
+            const scale = Math.min(phW / fimg.width, phH / fimg.height)
+            fimg.set({ left: phX, top: y, scaleX: scale, scaleY: scale, data: { type: 'image-block', phId } })
+            sel(fimg); canvas.add(fimg); canvas.renderAll()
+            resolve(y + phH + 12)
+          }
+          img.onerror = () => resolve(y + phH + 12)
+          img.src = block.imageSrc
+        })
+      }
+      canvas.add(sel(new fabric.Rect({
+        left: phX, top: y, width: phW, height: phH,
+        fill: '#f0f0f0', strokeWidth: 1.5, stroke: '#cccccc',
+        strokeDashArray: [8, 4], rx: 4, ry: 4,
+        data: { type: 'photo-placeholder', phId },
+      })))
+      canvas.add(tb('Double-click to add photo', {
+        left: phX, top: y + phH/2 - 8, width: phW,
+        textAlign: 'center', fontSize: 9, fill: '#bbbbbb',
+        fontFamily: 'Arial', editable: false,
+        data: { type: 'photo-label', phId },
+      }))
+      return y + phH + 12
     }
 
     case 'image':
@@ -349,7 +303,7 @@ async function applyBlock(canvas, block, config, y) {
         const img = new Image()
         img.onload = () => {
           const fimg = new fabric.Image(img)
-          const scale = Math.min(260/fimg.width, 180/fimg.height, 1)
+          const scale = Math.min(320/fimg.width, 200/fimg.height, 1)
           fimg.set({ left: ML, top: y, scaleX: scale, scaleY: scale, data: { type: 'image-block' } })
           sel(fimg); canvas.add(fimg); canvas.renderAll()
           resolve(y + fimg.getScaledHeight() + 12)
@@ -359,6 +313,76 @@ async function applyBlock(canvas, block, config, y) {
         img.src = block.src
       })
 
+    case 'esg-section-cover': {
+      const { letter, title: secTitle, description, phId, imageSrc } = block
+      const { theme, fontPair } = config
+      const leftW  = Math.round(CW * 0.52)
+      const rightX = leftW + 16
+      const rightW = CW - rightX - 10
+      const rightH = CH - 20
+
+      canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: CW,   height: CH,   fill: '#ffffff', strokeWidth: 0 })))
+      canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: leftW, height: CH, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
+
+      // Large watermark letter
+      canvas.add(tb(letter, {
+        left: -30, top: 30, width: leftW + 60,
+        textAlign: 'center', fontSize: 240, fontWeight: 'bold',
+        fill: theme.dark, opacity: 0.15, fontFamily: fontPair.heading,
+        editable: false, selectable: false, evented: false,
+        data: { tr: 'd' },
+      }))
+
+      // Small pill badge
+      const badgeLabel = `${letter}  —  ${secTitle.toUpperCase()}`
+      const badgeW = badgeLabel.length * 5 + 20
+      canvas.add(sel(new fabric.Rect({ left: ML, top: CH/2 - 74, width: badgeW, height: 18, fill: 'rgba(255,255,255,0.18)', rx: 9, ry: 9, strokeWidth: 0 })))
+      canvas.add(tb(badgeLabel, { left: ML, top: CH/2 - 73, width: badgeW, textAlign: 'center', fontSize: 7, fontWeight: 'bold', fill: '#ffffff', charSpacing: 60, fontFamily: fontPair.body }))
+
+      // Section title
+      canvas.add(tb(secTitle, { left: ML, top: CH/2 - 42, width: leftW - ML - 20, fontSize: 30, fontWeight: 'bold', fill: '#ffffff', fontFamily: fontPair.heading, editable: true }))
+
+      // Accent underline
+      canvas.add(sel(new fabric.Rect({ left: ML, top: CH/2 + 4, width: 48, height: 3, fill: 'rgba(255,255,255,0.45)', rx: 1, strokeWidth: 0 })))
+
+      // Description
+      if (description) {
+        canvas.add(tb(description, { left: ML, top: CH/2 + 18, width: leftW - ML - 20, fontSize: 9.5, fill: 'rgba(255,255,255,0.82)', fontFamily: fontPair.body, lineHeight: 1.6, editable: true }))
+      }
+
+      // Decorative corner accent
+      canvas.add(sel(new fabric.Rect({ left: leftW - 36, top: 0, width: 36, height: 36, fill: theme.dark, opacity: 0.3, strokeWidth: 0 })))
+
+      const phIdFinal = phId || `esg-${letter.toLowerCase()}-photo`
+      if (imageSrc) {
+        return new Promise(resolve => {
+          const img = new Image()
+          img.onload = () => {
+            const fimg = new fabric.Image(img)
+            const scale = Math.min(rightW / fimg.width, rightH / fimg.height)
+            fimg.set({ left: rightX, top: 10, scaleX: scale, scaleY: scale, data: { type: 'image-block', phId: phIdFinal } })
+            sel(fimg); canvas.add(fimg); canvas.renderAll()
+            resolve(CH)
+          }
+          img.onerror = () => resolve(CH)
+          img.src = imageSrc
+        })
+      }
+      canvas.add(sel(new fabric.Rect({
+        left: rightX, top: 10, width: rightW, height: rightH,
+        fill: '#f0f0f0', strokeWidth: 1.5, stroke: '#cccccc',
+        strokeDashArray: [8, 4], rx: 6, ry: 6,
+        data: { type: 'photo-placeholder', phId: phIdFinal },
+      })))
+      canvas.add(tb('Double-click to add photo', {
+        left: rightX, top: 10 + rightH/2 - 8, width: rightW,
+        textAlign: 'center', fontSize: 9, fill: '#bbbbbb',
+        fontFamily: 'Arial', editable: false,
+        data: { type: 'photo-label', phId: phIdFinal },
+      }))
+      return CH
+    }
+
     case 'spacer': return y + (block.height || 16)
     case 'cover':  return renderCoverBlock(canvas, block.data, config)
     case 'toc':    return renderTOCBlock(canvas, config, block.pageMap || {}, block.presentBadges)
@@ -366,7 +390,7 @@ async function applyBlock(canvas, block, config, y) {
   }
 }
 
-// ─── Cover pages ─────────────────────────────────────────────────────────────
+// ─── Cover page ───────────────────────────────────────────────────────────────
 
 function loadLogoAsync(canvas, src, x, y, maxW, maxH) {
   const img = new Image()
@@ -380,194 +404,112 @@ function loadLogoAsync(canvas, src, x, y, maxW, maxH) {
 }
 
 function renderCoverBlock(canvas, data, config) {
-  const { reportStyle } = config
-  if (reportStyle === 'bold')    return renderCoverBold(canvas, data, config)
-  if (reportStyle === 'minimal') return renderCoverMinimal(canvas, data, config)
-  if (reportStyle === 'dark')    return renderCoverDark(canvas, data, config)
-  return renderCoverModern(canvas, data, config)
+  return renderCoverESG365(canvas, data, config)
 }
 
-function _coverInfoCards(canvas, data, config, gridY) {
+function renderCoverESG365(canvas, data, config) {
   const { theme, fontPair } = config
-  const items = [['Company', data?.companyName],['Employees', data?.employeeCount],['Country', data?.country],['Currency', data?.currency]].filter(([,v])=>v)
-  const cardW = (CONTENT_W - 3*6) / 4
-  items.forEach(([lbl, val], i) => {
-    const cx = ML + i*(cardW+6)
-    canvas.add(sel(new fabric.Rect({ left: cx, top: gridY, width: cardW, height: 54, fill: theme.light, rx: 4, ry: 4, strokeWidth: 0, data: { tr: 'l' } })))
-    canvas.add(sel(new fabric.Rect({ left: cx, top: gridY, width: cardW, height: 3, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-    canvas.add(tb(lbl.toUpperCase(), { left: cx+8, top: gridY+9, width: cardW-12, fontSize: 6.5, fontWeight: 'bold', fill: '#94a3b8', charSpacing: 60, fontFamily: fontPair.body }))
-    canvas.add(tb(String(val||'—'), { left: cx+8, top: gridY+19, width: cardW-12, fontSize: 11, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.heading, data: { tr: 'pt' } }))
-  })
-  if (data?.contactName) canvas.add(tb(`Contact: ${data.contactName}${data.contactEmail ? '  ·  '+data.contactEmail : ''}`, { left: ML, top: gridY+62, width: CONTENT_W, fontSize: 7.5, fill: '#94a3b8', fontFamily: fontPair.body }))
-}
+  const leftW = Math.round(CW * 0.52)
+  const rightX = leftW + 18
+  const rightW = CW - rightX - 10
+  const phId = 'cover-photo'
 
-function renderCoverModern(canvas, data, config) {
-  const { theme, fontPair } = config
-  const hH = Math.round(CH*0.40), cy = hH + 28
-  canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: CW, height: hH, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-  canvas.add(sel(new fabric.Circle({ left: CW-90, top: -70, radius: 170, fill: 'rgba(255,255,255,0.05)', strokeWidth: 0 })))
-  canvas.add(sel(new fabric.Circle({ left: -40, top: hH-90, radius: 110, fill: 'rgba(255,255,255,0.04)', strokeWidth: 0 })))
-  canvas.add(sel(new fabric.Rect({ left: 0, top: hH-4, width: CW, height: 4, fill: 'rgba(255,255,255,0.12)', strokeWidth: 0 })))
-  canvas.add(sel(new fabric.Rect({ left: ML, top: 26, width: 122, height: 16, fill: 'rgba(255,255,255,0.15)', rx: 8, ry: 8, strokeWidth: 0 })))
-  canvas.add(tb('VSME  ·  BASIC MODULE', { left: ML, top: 28, width: 122, textAlign: 'center', fontSize: 7, fontWeight: 'bold', fill: '#fff', charSpacing: 100 }))
-  canvas.add(sel(new fabric.Rect({ left: ML, top: 56, width: 3, height: 56, fill: 'rgba(255,255,255,0.45)', strokeWidth: 0 })))
-  canvas.add(tb(data?.companyName||'Company Name', { left: ML+10, top: 56, width: CW-140, fontSize: 30, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.heading }))
-  const sub = [data?.sector, data?.country].filter(Boolean).join('  ·  ')
-  if (sub) canvas.add(tb(sub, { left: ML+10, top: 104, width: CW-120, fontSize: 11, fill: 'rgba(255,255,255,0.82)', fontFamily: fontPair.body }))
-  canvas.add(tb(`Sustainability Report  ${data?.reportingYear||new Date().getFullYear()}`, { left: ML+10, top: 122, width: 260, fontSize: 9, fill: 'rgba(255,255,255,0.60)', fontStyle: 'italic', fontFamily: fontPair.body }))
-  if (data?.images?.logoImage) loadLogoAsync(canvas, data.images.logoImage, CW-100, 20, 76, 76)
-  canvas.add(sel(new fabric.Rect({ left: ML, top: cy, width: 36, height: 3, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-  canvas.add(tb('About This Report', { left: ML, top: cy+8, width: 280, fontSize: 14, fontWeight: 'bold', fill: '#0f172a', fontFamily: fontPair.heading }))
-  canvas.add(sel(new fabric.Line([ML, cy+28, CW-ML, cy+28], { stroke: '#e2e8f0', strokeWidth: 0.6 })))
-  canvas.add(tb(`This report has been prepared in accordance with the VSME Basic Module (B1–B11), covering environmental, social and governance disclosures for ${data?.companyName||'the company'} for reporting year ${data?.reportingYear||''}.`, { left: ML, top: cy+36, width: CONTENT_W, fontSize: 9, fill: '#64748b', lineHeight: 1.6, fontFamily: fontPair.body }))
-  _coverInfoCards(canvas, data, config, CH-104)
-  canvas.add(sel(new fabric.Rect({ left: 0, top: CH-22, width: CW, height: 22, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-  canvas.add(tb('VSME ESG Report Builder', { left: ML, top: CH-17, width: 200, fontSize: 7, fill: 'rgba(255,255,255,0.65)', fontFamily: fontPair.body }))
-  canvas.add(tb(new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long' }), { left: CW-ML-160, top: CH-17, width: 160, textAlign: 'right', fontSize: 7, fill: 'rgba(255,255,255,0.65)', fontFamily: fontPair.body }))
-  return CH
-}
-
-function renderCoverBold(canvas, data, config) {
-  const { theme, fontPair } = config
-  canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: CW, height: CH, fill: theme.dark, strokeWidth: 0, data: { tr: 'd' } })))
-  canvas.add(sel(new fabric.Circle({ left: CW-120, top: -80, radius: 220, fill: theme.primary, opacity: 0.15, strokeWidth: 0 })))
-  canvas.add(sel(new fabric.Circle({ left: -80, top: CH-200, radius: 160, fill: theme.primary, opacity: 0.1, strokeWidth: 0 })))
-  if (data?.reportingYear) canvas.add(tb(String(data.reportingYear), { left: 60, top: 260, width: 480, textAlign: 'center', fontSize: 200, fontWeight: 'bold', fill: 'rgba(255,255,255,0.04)', fontFamily: fontPair.heading }))
-  canvas.add(sel(new fabric.Rect({ left: ML, top: 32, width: 110, height: 16, fill: 'rgba(255,255,255,0.12)', rx: 8, ry: 8, strokeWidth: 0 })))
-  canvas.add(tb('VSME BASIC MODULE', { left: ML, top: 34, width: 110, textAlign: 'center', fontSize: 7, fontWeight: 'bold', fill: 'rgba(255,255,255,0.7)', charSpacing: 80, fontFamily: fontPair.body }))
-  canvas.add(tb(data?.companyName||'Company Name', { left: ML, top: 200, width: CW-ML*2, fontSize: 38, fontWeight: 'bold', fill: '#ffffff', fontFamily: fontPair.heading }))
-  canvas.add(sel(new fabric.Rect({ left: ML, top: 310, width: 52, height: 3, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-  const sub = [data?.sector, data?.country].filter(Boolean).join('  ·  ')
-  if (sub) canvas.add(tb(sub, { left: ML, top: 322, width: CW-ML*2, fontSize: 12, fill: 'rgba(255,255,255,0.55)', fontFamily: fontPair.body }))
-  canvas.add(tb(`Sustainability Report  ${data?.reportingYear||new Date().getFullYear()}`, { left: ML, top: 342, width: CW-ML*2, fontSize: 10, fill: 'rgba(255,255,255,0.40)', fontStyle: 'italic', fontFamily: fontPair.body }))
-  if (data?.images?.logoImage) loadLogoAsync(canvas, data.images.logoImage, CW-110, 24, 88, 88)
-  const pY = CH-170
-  canvas.add(sel(new fabric.Rect({ left: 0, top: pY, width: CW, height: 170, fill: '#ffffff', strokeWidth: 0 })))
-  canvas.add(sel(new fabric.Rect({ left: 0, top: pY, width: CW, height: 3, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-  const items = [['Company',data?.companyName],['Employees',data?.employeeCount],['Country',data?.country],['Currency',data?.currency]].filter(([,v])=>v)
-  const cardW = (CONTENT_W-3*6)/4
-  items.forEach(([lbl,val],i) => {
-    const cx = ML+i*(cardW+6)
-    canvas.add(tb(lbl.toUpperCase(), { left: cx+4, top: pY+16, width: cardW-8, fontSize: 6.5, fontWeight: 'bold', fill: '#94a3b8', charSpacing: 60, fontFamily: fontPair.body }))
-    canvas.add(tb(String(val||'—'), { left: cx+4, top: pY+28, width: cardW-8, fontSize: 13, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.heading, data: { tr: 'pt' } }))
-  })
-  canvas.add(sel(new fabric.Line([ML, pY+56, CW-ML, pY+56], { stroke: '#e2e8f0', strokeWidth: 0.5 })))
-  if (data?.contactName) canvas.add(tb(`Contact: ${data.contactName}${data.contactEmail ? '  ·  '+data.contactEmail : ''}`, { left: ML, top: pY+66, width: CONTENT_W, fontSize: 8, fill: '#94a3b8', fontFamily: fontPair.body }))
-  canvas.add(sel(new fabric.Rect({ left: 0, top: CH-28, width: CW, height: 28, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-  canvas.add(tb('VSME ESG Report Builder', { left: ML, top: CH-20, width: 200, fontSize: 7.5, fill: 'rgba(255,255,255,0.7)', fontFamily: fontPair.body }))
-  canvas.add(tb(new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long' }), { left: CW-ML-160, top: CH-20, width: 160, textAlign: 'right', fontSize: 7.5, fill: 'rgba(255,255,255,0.7)', fontFamily: fontPair.body }))
-  return CH
-}
-
-function renderCoverMinimal(canvas, data, config) {
-  const { theme, fontPair } = config
   canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: CW, height: CH, fill: '#ffffff', strokeWidth: 0 })))
-  canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: 6, height: CH, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-  canvas.add(sel(new fabric.Rect({ left: 6, top: 0, width: CW-6, height: 80, fill: theme.light, strokeWidth: 0, data: { tr: 'l' } })))
-  canvas.add(sel(new fabric.Line([6, 80, CW, 80], { stroke: theme.primary, strokeWidth: 0.5, opacity: 0.3, data: { tr: 'ps' } })))
-  canvas.add(sel(new fabric.Rect({ left: 22, top: 22, width: 110, height: 16, fill: theme.primary, rx: 4, ry: 4, strokeWidth: 0, data: { tr: 'p' } })))
-  canvas.add(tb('VSME  ·  BASIC MODULE', { left: 22, top: 24, width: 110, textAlign: 'center', fontSize: 7, fontWeight: 'bold', fill: '#fff', charSpacing: 80, fontFamily: fontPair.body }))
-  canvas.add(tb(String(data?.reportingYear||new Date().getFullYear()), { left: CW-80, top: 22, width: 64, textAlign: 'right', fontSize: 20, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.heading, data: { tr: 'pt' } }))
-  canvas.add(tb(data?.companyName||'Company Name', { left: 22, top: 108, width: CW-130, fontSize: 32, fontWeight: 'bold', fill: '#0f172a', fontFamily: fontPair.heading }))
-  canvas.add(sel(new fabric.Line([22, 162, CW-22, 162], { stroke: theme.primary, strokeWidth: 1.2, data: { tr: 'ps' } })))
+  canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: 5, height: CH, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
+  canvas.add(sel(new fabric.Rect({ left: ML, top: 26, width: 132, height: 22, fill: theme.primary, rx: 11, ry: 11, strokeWidth: 0, data: { tr: 'p' } })))
+  canvas.add(tb('VSME  ·  BASIC MODULE', { left: ML, top: 31, width: 132, textAlign: 'center', fontSize: 7.5, fontWeight: 'bold', fill: '#fff', charSpacing: 80, fontFamily: fontPair.body }))
+  canvas.add(tb(data?.companyName||'Company Name', { left: ML, top: 76, width: leftW - 28, fontSize: 36, fontWeight: 'bold', fill: '#1a1a1a', fontFamily: fontPair.heading }))
+  canvas.add(sel(new fabric.Rect({ left: ML, top: 148, width: 56, height: 4, fill: theme.primary, rx: 2, strokeWidth: 0, data: { tr: 'p' } })))
   const sub = [data?.sector, data?.country].filter(Boolean).join('  ·  ')
-  if (sub) canvas.add(tb(sub, { left: 22, top: 172, width: CW-44, fontSize: 11, fill: '#64748b', fontFamily: fontPair.body }))
-  canvas.add(tb('Annual Sustainability Report', { left: 22, top: 192, width: 300, fontSize: 9, fill: '#94a3b8', fontStyle: 'italic', fontFamily: fontPair.body }))
-  if (data?.images?.logoImage) loadLogoAsync(canvas, data.images.logoImage, CW-112, 106, 90, 56)
-  canvas.add(sel(new fabric.Line([22, 232, CW-22, 232], { stroke: '#e2e8f0', strokeWidth: 0.5 })))
-  canvas.add(tb(`This report has been prepared in accordance with the VSME Basic Module (B1–B11) for ${data?.companyName||'the company'}, reporting year ${data?.reportingYear||''}.`, { left: 22, top: 242, width: CW-44, fontSize: 9, fill: '#64748b', lineHeight: 1.65, fontFamily: fontPair.body }))
-  const mItems = [['Legal Form',data?.legalForm],['Reporting Basis',data?.reportingBasis==='individual'?'Individual':data?.reportingBasis==='consolidated'?'Consolidated':''],['Balance Sheet',data?.balanceSum?`${Number(data.balanceSum).toLocaleString()} ${data?.currency||''}`:''],['Revenue',data?.revenue?`${Number(data.revenue).toLocaleString()} ${data?.currency||''}`:'']].filter(([,v])=>v)
-  let infoY = 328
-  mItems.forEach(([lbl,val])=>{ canvas.add(sel(new fabric.Line([22,infoY,CW-22,infoY],{stroke:'#f1f5f9',strokeWidth:0.5}))); canvas.add(tb(lbl,{left:22,top:infoY+5,width:160,fontSize:8.5,fill:'#94a3b8',fontFamily:fontPair.body})); canvas.add(tb(String(val),{left:200,top:infoY+5,width:CW-222,fontSize:8.5,fontWeight:'600',fill:'#1e293b',fontFamily:fontPair.body})); infoY+=22 })
-  const keyItems = [['Company',data?.companyName],['Employees',data?.employeeCount],['Country',data?.country],['Currency',data?.currency]].filter(([,v])=>v)
-  const cW2 = (CONTENT_W-3*8)/4, gY = CH-100
-  keyItems.forEach(([lbl,val],i)=>{ const cx=22+i*(cW2+8); canvas.add(sel(new fabric.Rect({left:cx,top:gY,width:cW2,height:44,fill:theme.light,rx:3,ry:3,strokeWidth:0,data:{tr:'l'}}))); canvas.add(tb(lbl.toUpperCase(),{left:cx+6,top:gY+7,width:cW2-8,fontSize:6,fontWeight:'bold',fill:'#94a3b8',charSpacing:50,fontFamily:fontPair.body})); canvas.add(tb(String(val||'—'),{left:cx+6,top:gY+17,width:cW2-8,fontSize:10,fontWeight:'bold',fill:theme.primary,fontFamily:fontPair.heading,data:{tr:'pt'}})) })
-  canvas.add(sel(new fabric.Rect({ left: 0, top: CH-22, width: CW, height: 22, fill: theme.light, strokeWidth: 0, data: { tr: 'l' } })))
-  canvas.add(sel(new fabric.Line([0, CH-22, CW, CH-22], { stroke: theme.primary, strokeWidth: 0.5, data: { tr: 'ps' } })))
-  canvas.add(tb('VSME ESG Report Builder', { left: 22, top: CH-16, width: 200, fontSize: 7, fill: theme.primary, fontFamily: fontPair.body, data: { tr: 'pt' } }))
-  canvas.add(tb(new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long' }), { left: CW-ML-160, top: CH-16, width: 160, textAlign: 'right', fontSize: 7, fill: theme.primary, fontFamily: fontPair.body, data: { tr: 'pt' } }))
-  return CH
-}
+  if (sub) canvas.add(tb(sub, { left: ML, top: 162, width: leftW - 28, fontSize: 11, fill: '#555555', fontFamily: fontPair.body }))
+  canvas.add(tb(`Sustainability Report  ${data?.reportingYear||new Date().getFullYear()}`, { left: ML, top: 184, width: leftW - 28, fontSize: 9, fill: '#888888', fontStyle: 'italic', fontFamily: fontPair.body }))
+  canvas.add(tb('Prepared in accordance with VSME Basic Module (B1–B11)', { left: ML, top: 207, width: leftW - 28, fontSize: 8, fill: '#aaaaaa', fontFamily: fontPair.body }))
+  if (data?.images?.logoImage) loadLogoAsync(canvas, data.images.logoImage, ML, CH - 110, 100, 72)
+  if (data?.contactName) canvas.add(tb(data.contactName + (data?.contactEmail ? '  ·  '+data.contactEmail : ''), { left: ML, top: CH - 44, width: leftW - 28, fontSize: 8, fill: '#888888', fontFamily: fontPair.body }))
 
-function renderCoverDark(canvas, data, config) {
-  const { theme, fontPair } = config
-  const splitX = 240
-  canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: splitX, height: CH, fill: theme.dark, strokeWidth: 0, data: { tr: 'd' } })))
-  canvas.add(sel(new fabric.Rect({ left: splitX, top: 0, width: CW-splitX, height: CH, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-  canvas.add(sel(new fabric.Circle({ left: splitX-80, top: CH-180, radius: 140, fill: 'rgba(255,255,255,0.06)', strokeWidth: 0 })))
-  canvas.add(sel(new fabric.Circle({ left: splitX+60, top: -60, radius: 110, fill: 'rgba(255,255,255,0.08)', strokeWidth: 0 })))
-  canvas.add(sel(new fabric.Line([splitX, 0, splitX, CH], { stroke: 'rgba(255,255,255,0.12)', strokeWidth: 1.5 })))
-  // Left panel
-  canvas.add(sel(new fabric.Rect({ left: 18, top: 28, width: 90, height: 14, fill: 'rgba(255,255,255,0.15)', rx: 7, ry: 7, strokeWidth: 0 })))
-  canvas.add(tb('VSME BASIC', { left: 18, top: 30, width: 90, textAlign: 'center', fontSize: 6.5, fontWeight: 'bold', fill: '#fff', charSpacing: 80, fontFamily: fontPair.body }))
-  canvas.add(tb(data?.companyName||'Company Name', { left: 18, top: 230, width: splitX-30, fontSize: 22, fontWeight: 'bold', fill: '#ffffff', fontFamily: fontPair.heading }))
-  canvas.add(sel(new fabric.Rect({ left: 18, top: 298, width: 40, height: 3, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-  canvas.add(tb(String(data?.reportingYear||new Date().getFullYear()), { left: 18, top: 310, width: splitX-30, fontSize: 15, fill: 'rgba(255,255,255,0.7)', fontFamily: fontPair.body }))
-  if (data?.images?.logoImage) loadLogoAsync(canvas, data.images.logoImage, 18, 360, 70, 70)
-  if (data?.contactName) { canvas.add(tb(data.contactName, { left: 18, top: CH-80, width: splitX-28, fontSize: 8, fill: 'rgba(255,255,255,0.65)', fontFamily: fontPair.body })); if (data.contactEmail) canvas.add(tb(data.contactEmail, { left: 18, top: CH-68, width: splitX-28, fontSize: 7.5, fill: 'rgba(255,255,255,0.45)', fontFamily: fontPair.body })) }
-  // Right panel
-  const rx = splitX+22, rw = CW-splitX-28
-  canvas.add(tb('Sustainability Report', { left: rx, top: 50, width: rw, fontSize: 22, fontWeight: 'bold', fill: '#ffffff', fontFamily: fontPair.heading }))
-  canvas.add(sel(new fabric.Line([rx, 86, CW-16, 86], { stroke: 'rgba(255,255,255,0.25)', strokeWidth: 0.6 })))
-  canvas.add(tb(`Prepared in accordance with VSME Basic Module (B1–B11) for reporting year ${data?.reportingYear||''}.`, { left: rx, top: 96, width: rw, fontSize: 8.5, fill: 'rgba(255,255,255,0.7)', lineHeight: 1.6, fontFamily: fontPair.body }))
-  const infoItems = [['Sector',data?.sector],['Country',data?.country],['Employees',data?.employeeCount],['Legal Form',data?.legalForm],['Currency',data?.currency],['Revenue',data?.revenue?`${Number(data.revenue).toLocaleString()} ${data?.currency||''}`:'']].filter(([,v])=>v)
-  let iY = 150
-  infoItems.forEach(([lbl,val])=>{ canvas.add(sel(new fabric.Line([rx,iY,CW-16,iY],{stroke:'rgba(255,255,255,0.12)',strokeWidth:0.5}))); canvas.add(tb(lbl,{left:rx,top:iY+5,width:70,fontSize:8,fill:'rgba(255,255,255,0.5)',fontFamily:fontPair.body})); canvas.add(tb(String(val),{left:rx+75,top:iY+5,width:rw-75,fontSize:8,fontWeight:'600',fill:'#ffffff',fontFamily:fontPair.body})); iY+=22 })
-  canvas.add(sel(new fabric.Rect({ left: 0, top: CH-22, width: CW, height: 22, fill: theme.dark, strokeWidth: 0, data: { tr: 'd' } })))
-  canvas.add(sel(new fabric.Rect({ left: 0, top: CH-22, width: CW, height: 2, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-  canvas.add(tb('VSME ESG Report Builder', { left: 18, top: CH-17, width: 200, fontSize: 7, fill: 'rgba(255,255,255,0.5)', fontFamily: fontPair.body }))
-  canvas.add(tb(new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long' }), { left: CW-ML-160, top: CH-17, width: 160, textAlign: 'right', fontSize: 7, fill: 'rgba(255,255,255,0.5)', fontFamily: fontPair.body }))
+  // Right side — cover photo or dashed placeholder
+  if (data?.images?.coverPhoto) {
+    const coverImg = new Image()
+    coverImg.onload = () => {
+      const fimg = new fabric.Image(coverImg)
+      const scale = Math.min(rightW / fimg.width, (CH - 30) / fimg.height)
+      fimg.set({ left: rightX, top: 15, scaleX: scale, scaleY: scale, data: { type: 'image-block', phId } })
+      sel(fimg); canvas.add(fimg); canvas.renderAll()
+    }
+    coverImg.src = data.images.coverPhoto
+  } else {
+    canvas.add(sel(new fabric.Rect({
+      left: rightX, top: 15, width: rightW, height: CH - 30,
+      fill: '#f0f0f0', strokeWidth: 1.5, stroke: '#cccccc',
+      strokeDashArray: [8, 4], rx: 6, ry: 6,
+      data: { type: 'photo-placeholder', phId },
+    })))
+    canvas.add(tb('Double-click to add photo', {
+      left: rightX, top: CH/2 - 8, width: rightW,
+      textAlign: 'center', fontSize: 9, fill: '#bbbbbb',
+      fontFamily: fontPair.body, editable: false,
+      data: { type: 'photo-label', phId },
+    }))
+  }
+  // Decorative accent corner
+  canvas.add(sel(new fabric.Rect({ left: CW - 36, top: 0, width: 36, height: 36, fill: theme.light, strokeWidth: 0, data: { tr: 'l' } })))
   return CH
 }
 
 // ─── Table of contents ────────────────────────────────────────────────────────
 
 function renderTOCBlock(canvas, config, pageMap, presentBadges) {
-  const { theme, fontPair, reportStyle } = config
+  const { theme, fontPair } = config
   const ALL_SECTIONS = [
     ['B1','General Information'],['B2','Policies & Commitments'],['B3','Energy & GHG Emissions'],
     ['B4','Pollution'],['B5','Biodiversity'],['B6','Water'],['B7','Resources & Circular Economy'],
     ['B8','Own Workforce'],['B9','Health & Safety'],['B10','Pay & Training'],['B11','Corporate Conduct'],
   ]
   const SECTIONS = presentBadges ? ALL_SECTIONS.filter(([b]) => presentBadges.has(b)) : ALL_SECTIONS
-  // TOC header matches section band style
-  if (reportStyle === 'modern') {
-    canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: 72, height: 80, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-    canvas.add(sel(new fabric.Rect({ left: 72, top: 0, width: CW-72, height: 80, fill: theme.light, strokeWidth: 0, data: { tr: 'l' } })))
-    canvas.add(tb('TOC', { left: 0, top: 28, width: 72, textAlign: 'center', fontSize: 14, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.heading }))
-    canvas.add(tb('Contents', { left: 86, top: 20, width: 280, fontSize: 24, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.heading, data: { tr: 'pt' } }))
-    canvas.add(tb('VSME Basic Module  ·  B1 – B11', { left: 86, top: 52, width: 300, fontSize: 9, fill: '#94a3b8', fontFamily: fontPair.body }))
-  } else if (reportStyle === 'bold') {
-    canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: CW, height: 80, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-    canvas.add(sel(new fabric.Circle({ left: CW-40, top: -50, radius: 110, fill: 'rgba(255,255,255,0.05)', strokeWidth: 0 })))
-    canvas.add(tb('Contents', { left: ML, top: 18, width: 300, fontSize: 28, fontWeight: 'bold', fill: '#ffffff', fontFamily: fontPair.heading }))
-    canvas.add(tb('VSME Basic Module  ·  B1 – B11', { left: ML, top: 54, width: 300, fontSize: 9, fill: 'rgba(255,255,255,0.65)', fontFamily: fontPair.body }))
-  } else if (reportStyle === 'minimal') {
-    canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: 4, height: 80, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-    canvas.add(tb('Contents', { left: ML, top: 16, width: 300, fontSize: 28, fontWeight: 'bold', fill: '#0f172a', fontFamily: fontPair.heading }))
-    canvas.add(tb('VSME Basic Module  ·  B1 – B11', { left: ML, top: 52, width: 300, fontSize: 9, fill: '#94a3b8', fontFamily: fontPair.body }))
-    canvas.add(sel(new fabric.Line([0, 80, CW, 80], { stroke: '#e2e8f0', strokeWidth: 0.6 })))
-  } else { // dark
-    canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: CW, height: 80, fill: theme.dark, strokeWidth: 0, data: { tr: 'd' } })))
-    canvas.add(sel(new fabric.Rect({ left: 0, top: 77, width: CW, height: 3, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-    canvas.add(tb('Contents', { left: ML, top: 18, width: 300, fontSize: 28, fontWeight: 'bold', fill: '#ffffff', fontFamily: fontPair.heading }))
-    canvas.add(tb('VSME Basic Module  ·  B1 – B11', { left: ML, top: 54, width: 300, fontSize: 9, fill: 'rgba(255,255,255,0.5)', fontFamily: fontPair.body }))
-  }
-  let y = 96
+
+  // Header
+  canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: CW, height: 72, fill: '#ffffff', strokeWidth: 0 })))
+  canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: 5, height: 72, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
+  canvas.add(tb('Contents', { left: ML, top: 12, width: 400, fontSize: 26, fontWeight: 'bold', fill: '#1a1a1a', fontFamily: fontPair.heading }))
+  canvas.add(tb('VSME Basic Module  ·  B1 – B11', { left: ML, top: 48, width: 400, fontSize: 9, fill: '#888888', fontFamily: fontPair.body }))
+  canvas.add(sel(new fabric.Line([ML, 72, CW-ML, 72], { stroke: '#dddddd', strokeWidth: 0.5 })))
+
+  // Two-column layout for landscape
+  const gap = 40
+  const colW = Math.floor((CONTENT_W - gap) / 2)
+  const col2X = ML + colW + gap
+  const rowH = 28
+  const startY = 84
+
   SECTIONS.forEach(([badge, title], i) => {
-    const isEven = i%2===0
-    if (isEven) canvas.add(sel(new fabric.Rect({ left: ML, top: y-2, width: CONTENT_W, height: 22, fill: '#f8fafc', rx: 2, ry: 2, strokeWidth: 0 })))
-    const bW = badge.length > 2 ? 28 : 22
-    canvas.add(sel(new fabric.Rect({ left: ML+4, top: y+2, width: bW, height: 14, fill: theme.primary, rx: 3, ry: 3, strokeWidth: 0, data: { tr: 'p' } })))
-    canvas.add(tb(badge, { left: ML+4, top: y+3, width: bW, textAlign: 'center', fontSize: 7.5, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }))
-    canvas.add(tb(title, { left: ML+bW+10, top: y+1, width: CONTENT_W-bW-50, fontSize: 10, fill: '#334155', fontFamily: fontPair.body }))
-    canvas.add(tb(pageMap[badge] ? String(pageMap[badge]) : '—', { left: CW-ML-30, top: y+1, width: 30, textAlign: 'right', fontSize: 10, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.body, data: { tr: 'pt' } }))
-    y += 22
+    const col = i % 2
+    const row = Math.floor(i / 2)
+    const x = col === 0 ? ML : col2X
+    const y = startY + row * rowH
+    const bW = badge.length > 2 ? 30 : 22
+
+    canvas.add(sel(new fabric.Rect({ left: x, top: y+3, width: bW, height: 16, fill: theme.primary, rx: 8, ry: 8, strokeWidth: 0, data: { tr: 'p' } })))
+    canvas.add(tb(badge, { left: x, top: y+5, width: bW, textAlign: 'center', fontSize: 7.5, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }))
+    canvas.add(tb(title, { left: x+bW+9, top: y+4, width: colW-bW-44, fontSize: 10, fill: '#334155', fontFamily: fontPair.body }))
+    canvas.add(tb(pageMap[badge] ? String(pageMap[badge]) : '—', { left: x+colW-32, top: y+4, width: 32, textAlign: 'right', fontSize: 10, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.body, data: { tr: 'pt' } }))
+    canvas.add(sel(new fabric.Line([x, y+rowH, x+colW, y+rowH], { stroke: '#eeeeee', strokeWidth: 0.5 })))
   })
   return CH
 }
 
 // ─── PDF export ───────────────────────────────────────────────────────────────
+
+async function waitForCanvasImages(canvas) {
+  const imgs = canvas.getObjects().filter(o => o.type === 'image')
+  if (!imgs.length) return
+  await Promise.all(imgs.map(fimg => new Promise(res => {
+    const el = fimg.getElement()
+    if (!el) return res()
+    if (el.complete && el.naturalWidth > 0) return res()
+    el.addEventListener('load',  res, { once: true })
+    el.addEventListener('error', res, { once: true })
+  })))
+}
 
 async function exportAllPagesToPDF(pages, allStates, config, companyName, reportingYear) {
   const { theme } = config
@@ -576,17 +518,26 @@ async function exportAllPagesToPDF(pages, allStates, config, companyName, report
   document.body.appendChild(exportEl)
   const offscreen = new fabric.Canvas(exportEl, { width: CW*2, height: CH*2, backgroundColor: '#ffffff' })
   offscreen.setZoom(2)
-  const doc = new jsPDF({ format: 'a4', unit: 'mm', orientation: 'portrait' })
+  const doc = new jsPDF({ format: 'a4', unit: 'mm', orientation: 'landscape' })
   for (let i = 0; i < pages.length; i++) {
     if (i > 0) doc.addPage()
     await new Promise(resolve => {
       offscreen.clear(); offscreen.backgroundColor = '#ffffff'
       const saved = allStates[i]
-      if (saved) offscreen.loadFromJSON(saved, () => { offscreen.setZoom(2); recolorCanvas(offscreen, theme); offscreen.renderAll(); resolve() })
-      else renderPage(offscreen, pages[i], config, i+1, companyName).then(resolve)
+      if (saved) {
+        offscreen.loadFromJSON(saved, async () => {
+          offscreen.setZoom(2)
+          await waitForCanvasImages(offscreen)
+          recolorCanvas(offscreen, theme)
+          offscreen.renderAll()
+          resolve()
+        })
+      } else {
+        renderPage(offscreen, pages[i], config, i+1, companyName).then(resolve)
+      }
     })
-    await new Promise(r => setTimeout(r, 80))
-    doc.addImage(exportEl.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, 210, 297)
+    await new Promise(r => setTimeout(r, 120))
+    doc.addImage(exportEl.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, 297, 210)
   }
   offscreen.dispose(); document.body.removeChild(exportEl)
   doc.save(`VSME_ESG_${(companyName||'Report').replace(/\s+/g,'_')}_${reportingYear||''}.pdf`)
@@ -608,20 +559,39 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
   const nudgeTimerRef     = useRef(null)
   const prevFontPairRef   = useRef(null) // tracks previous font pair for in-place font swapping
   const autoSaveTimerRef  = useRef(null)
-  const handleSaveCanvasRef = useRef(null)
+  const handleSaveCanvasRef    = useRef(null)
+  const photoUploadTargetRef   = useRef(null)
 
-  // Prefer pendingCanvasDraft prop (passed directly from cloud load) over localStorage,
-  // so cross-device restores work without relying on localStorage being written first.
+  // Prefer pendingCanvasDraft prop (passed directly from cloud load) over localStorage.
+  // If the draft's dataSnapshot doesn't match current form data (e.g. year or currency changed)
+  // the draft is considered stale and discarded so pages regenerate from the new data.
+  // User-placed objects (photos, shapes) are stored in a SEPARATE key that is never invalidated
+  // by form data changes, so they always survive regardless of draft staleness.
   const [savedDraft] = useState(() => {
+    // Always seed userObjectsRef from the dedicated user-objects store first.
+    // This key is updated immediately on every canvas change and is never cleared by stale detection.
+    try {
+      const saved = JSON.parse(localStorage.getItem(USER_OBJECTS_KEY) || 'null')
+      if (saved) Object.entries(saved).forEach(([idx, objs]) => { if (objs?.length) userObjectsRef.current[Number(idx)] = objs })
+    } catch {}
+
     if (pendingCanvasDraft) return pendingCanvasDraft
-    try { return JSON.parse(localStorage.getItem(CANVAS_STORAGE_KEY) || 'null') } catch { return null }
+    try {
+      const draft = JSON.parse(localStorage.getItem(CANVAS_STORAGE_KEY) || 'null')
+      if (!draft) return null
+      const snap = draft.dataSnapshot
+      const { images: _i, ...currentForm } = data
+      const stale = !snap || JSON.stringify(snap) !== JSON.stringify(currentForm)
+      if (stale) { localStorage.removeItem(CANVAS_STORAGE_KEY); return null }
+      return draft
+    } catch { return null }
   })
 
   const [activeIdx, _setActiveIdx]          = useState(0)
-  const [themeId, setThemeId]               = useState(savedDraft?.settings?.themeId      ?? 'navy')
+  const [themeId, setThemeId]               = useState(savedDraft?.settings?.themeId      ?? 'green')
   const [customColor, setCustomColor]       = useState(savedDraft?.settings?.customColor   ?? '#112a57')
-  const [reportStyleId, setReportStyleId]   = useState(savedDraft?.settings?.reportStyleId ?? 'modern')
-  const [fontPairId, setFontPairId]         = useState(savedDraft?.settings?.fontPairId    ?? 'editorial')
+  const [reportStyleId]   = useState(savedDraft?.settings?.reportStyleId ?? 'modern')
+  const [fontPairId]                        = useState(savedDraft?.settings?.fontPairId    ?? 'editorial')
   const [hasSelection, setHasSelection]     = useState(false)
   const [selectionColor, setSelectionColor] = useState('#112a57')
   const [selType, setSelType]               = useState(null)   // 'text'|'image'|'rect'|'circle'|'other'|null
@@ -676,6 +646,8 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
     hist.idx = hist.stack.length-1
     if (activeIdxRef.current === idx) { setCanUndo(hist.idx > 0); setCanRedo(false) }
     userObjectsRef.current[idx] = json.objects.filter(o => o.data?.userAdded)
+    // Persist user-placed objects immediately to a separate key that survives draft invalidation.
+    try { localStorage.setItem(USER_OBJECTS_KEY, JSON.stringify(userObjectsRef.current)) } catch {}
     // New action on this page invalidates any pending cross-page redos involving it
     crossPageRedoRef.current = crossPageRedoRef.current.filter(op => op.fromIdx !== idx && op.toIdx !== idx)
     // Debounced auto-save to localStorage after any canvas change (2s idle)
@@ -710,11 +682,20 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
     reportStyleMountedRef.current = false
     fontPairMountedRef.current = false
 
-    // pendingCanvasDraft (passed directly from cloud load) takes priority over localStorage,
-    // ensuring cross-device restores work even if the localStorage write didn't complete.
+    // pendingCanvasDraft (from cloud load) takes priority. Otherwise load from localStorage
+    // only if the draft's dataSnapshot still matches the current form data.
     let localDraft = pendingCanvasDraft
     if (!localDraft) {
-      try { localDraft = JSON.parse(localStorage.getItem(CANVAS_STORAGE_KEY) || 'null') } catch {}
+      try {
+        const raw = JSON.parse(localStorage.getItem(CANVAS_STORAGE_KEY) || 'null')
+        if (raw) {
+          const snap = raw.dataSnapshot
+          const { images: _i, ...currentForm } = data
+          const stale = !snap || JSON.stringify(snap) !== JSON.stringify(currentForm)
+          if (!stale) localDraft = raw
+          else localStorage.removeItem(CANVAS_STORAGE_KEY)
+        }
+      } catch {}
     }
 
     const instances = new Array(pages.length).fill(null)
@@ -722,12 +703,26 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
       const el = canvasElRefs.current[i]; if (!el) return
       const canvas = new fabric.Canvas(el, { width: CW, height: CH, backgroundColor: '#ffffff', preserveObjectStacking: true, stopContextMenu: true })
       instances[i] = canvas
+
+      // Full-width background rects (page backgrounds, section headers) should not capture
+      // clicks so rubber-band selection works when dragging over them.
+      // User-added objects are always selectable regardless of size.
+      const origFindTarget = canvas.findTarget.bind(canvas)
+      canvas.findTarget = function(e, skipGroup) {
+        const target = origFindTarget(e, skipGroup)
+        if (target && target.type === 'rect' && !target.data?.userAdded &&
+            target.left <= 0 && target.width >= CW - 1) {
+          return null
+        }
+        return target
+      }
+
       canvas.on('mouse:down', (e) => {
         const p = canvas.getPointer(e.e); lastPointerRef.current[i] = { x: p.x, y: p.y }
         if (activeIdxRef.current !== i) { const prev = instances[activeIdxRef.current]; if (prev) { prev.discardActiveObject(); prev.renderAll() }; setActiveIdx(i); setHasSelection(false) }
       })
       canvas.on('selection:created', (e) => { if (activeIdxRef.current === i) { setHasSelection(true); updateSelColorRef.current?.(e.selected?.[0]) } })
-      canvas.on('selection:updated', (e) => { if (activeIdxRef.current === i) updateSelColorRef.current?.(e.selected?.[0] ?? canvas.getActiveObject()) })
+      canvas.on('selection:updated', (e) => { if (activeIdxRef.current === i) { setHasSelection(true); updateSelColorRef.current?.(e.selected?.[0] ?? canvas.getActiveObject()) } })
       canvas.on('selection:cleared', () => { if (activeIdxRef.current === i) { setHasSelection(false); setSelType(null) } })
       canvas.on('object:moving', (e) => {
         const obj = e.target
@@ -782,7 +777,17 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
         }
       })
       canvas.on('text:changed', () => pushHistoryRef.current(i, canvas))
-      canvas.on('mouse:dblclick', (e) => { const obj = e.target; if (obj?.type === 'textbox' && obj.editable !== false) { canvas.setActiveObject(obj); obj.enterEditing(); canvas.renderAll() } })
+      canvas.on('mouse:dblclick', (e) => {
+        const obj = e.target
+        if (obj?.data?.type === 'photo-placeholder' || obj?.data?.type === 'photo-label') {
+          const phId = obj.data?.phId
+          const placeholder = canvas.getObjects().find(o => o.data?.type === 'photo-placeholder' && o.data?.phId === phId) || obj
+          photoUploadTargetRef.current = { canvasIdx: i, obj: placeholder, canvas }
+          fileInputRef.current?.click()
+        } else if (obj?.type === 'textbox' && obj.editable !== false) {
+          canvas.setActiveObject(obj); obj.enterEditing(); canvas.renderAll()
+        }
+      })
       const savedState = localDraft?.states?.[i]
       if (savedState) {
         canvas.loadFromJSON(savedState, () => {
@@ -791,7 +796,23 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
           historyRef.current[i] = { stack: [canvas.toJSON(['data'])], idx: 0 }
         })
       } else {
-        renderPage(canvas, page, configRef.current, i+1, data.companyName).then(() => { if (!historyRef.current[i]) historyRef.current[i] = { stack: [canvas.toJSON(['data'])], idx: 0 } })
+        renderPage(canvas, page, configRef.current, i+1, data.companyName).then(() => {
+          const savedUserObjs = userObjectsRef.current[i] || []
+          const finish = () => { if (!historyRef.current[i]) historyRef.current[i] = { stack: [canvas.toJSON(['data'])], idx: 0 } }
+          if (savedUserObjs.length > 0) {
+            fabric.util.enlivenObjects(savedUserObjs, (objs) => {
+              objs.forEach(o => {
+                o.set({ borderColor: '#2563eb', cornerColor: '#2563eb', cornerStyle: 'circle', cornerSize: 9, transparentCorners: false, padding: 2 })
+                canvas.add(o)
+              })
+              recolorCanvas(canvas, configRef.current.theme)
+              canvas.renderAll()
+              finish()
+            })
+          } else {
+            finish()
+          }
+        })
       }
     })
     fabricInstances.current = instances
@@ -810,6 +831,7 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
         const finish = () => {
           // Snapshot after user objects are placed so future switches see them
           userObjectsRef.current[i] = canvas.toJSON(['data']).objects.filter(o => o.data?.userAdded)
+          try { localStorage.setItem(USER_OBJECTS_KEY, JSON.stringify(userObjectsRef.current)) } catch {}
           historyRef.current[i] = { stack: [canvas.toJSON(['data'])], idx: 0 }
           if (activeIdxRef.current === i) { setCanUndo(false); setCanRedo(false) }
         }
@@ -869,7 +891,7 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
       if (activeIdxRef.current !== i) { const prev = fabricInstances.current[activeIdxRef.current]; if (prev) { prev.discardActiveObject(); prev.renderAll() }; setActiveIdx(i); setHasSelection(false) }
     })
     canvas.on('selection:created', (e) => { if (activeIdxRef.current === i) { setHasSelection(true); updateSelColorRef.current?.(e.selected?.[0]) } })
-    canvas.on('selection:updated', (e) => { if (activeIdxRef.current === i) updateSelColorRef.current?.(e.selected?.[0] ?? canvas.getActiveObject()) })
+    canvas.on('selection:updated', (e) => { if (activeIdxRef.current === i) { setHasSelection(true); updateSelColorRef.current?.(e.selected?.[0] ?? canvas.getActiveObject()) } })
     canvas.on('selection:cleared', () => { if (activeIdxRef.current === i) { setHasSelection(false); setSelType(null) } })
     canvas.on('object:moving', (e) => {
       const obj = e.target
@@ -940,8 +962,8 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
       const fromHist = historyRef.current[lastOp.fromIdx], toHist = historyRef.current[lastOp.toIdx]
       if (fromHist) fromHist.idx = lastOp.fromHistIdxBefore
       if (toHist)   toHist.idx   = lastOp.toHistIdxBefore
-      fromCanvas?.loadFromJSON(lastOp.undo.fromJson, () => { recolorCanvas(fromCanvas, themeRef.current); fromCanvas.renderAll(); userObjectsRef.current[lastOp.fromIdx] = lastOp.undo.fromJson.objects?.filter(o => o.data?.userAdded) ?? [] })
-      toCanvas?.loadFromJSON(lastOp.undo.toJson,     () => { recolorCanvas(toCanvas, themeRef.current);   toCanvas.renderAll();   userObjectsRef.current[lastOp.toIdx]   = lastOp.undo.toJson.objects?.filter(o => o.data?.userAdded) ?? [] })
+      fromCanvas?.loadFromJSON(lastOp.undo.fromJson, () => { recolorCanvas(fromCanvas, themeRef.current); fromCanvas.renderAll(); userObjectsRef.current[lastOp.fromIdx] = lastOp.undo.fromJson.objects?.filter(o => o.data?.userAdded) ?? []; try { localStorage.setItem(USER_OBJECTS_KEY, JSON.stringify(userObjectsRef.current)) } catch {} })
+      toCanvas?.loadFromJSON(lastOp.undo.toJson,     () => { recolorCanvas(toCanvas, themeRef.current);   toCanvas.renderAll();   userObjectsRef.current[lastOp.toIdx]   = lastOp.undo.toJson.objects?.filter(o => o.data?.userAdded) ?? [];   try { localStorage.setItem(USER_OBJECTS_KEY, JSON.stringify(userObjectsRef.current)) } catch {} })
       setCanUndo(false); setCanRedo(true)
       return
     }
@@ -951,6 +973,7 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
     canvas.loadFromJSON(h.stack[h.idx], () => {
       recolorCanvas(canvas, themeRef.current); canvas.renderAll()
       userObjectsRef.current[idx] = h.stack[h.idx].objects.filter(o => o.data?.userAdded)
+      try { localStorage.setItem(USER_OBJECTS_KEY, JSON.stringify(userObjectsRef.current)) } catch {}
     })
     setCanUndo(h.idx > 0); setCanRedo(true)
   }, [])
@@ -967,8 +990,8 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
       const fromHist = historyRef.current[lastRedo.fromIdx], toHist = historyRef.current[lastRedo.toIdx]
       if (fromHist) fromHist.idx = lastRedo.fromHistIdxAfter
       if (toHist)   toHist.idx   = lastRedo.toHistIdxAfter
-      fromCanvas?.loadFromJSON(lastRedo.redo.fromJson, () => { recolorCanvas(fromCanvas, themeRef.current); fromCanvas.renderAll(); userObjectsRef.current[lastRedo.fromIdx] = lastRedo.redo.fromJson.objects?.filter(o => o.data?.userAdded) ?? [] })
-      toCanvas?.loadFromJSON(lastRedo.redo.toJson,     () => { recolorCanvas(toCanvas, themeRef.current);   toCanvas.renderAll();   userObjectsRef.current[lastRedo.toIdx]   = lastRedo.redo.toJson.objects?.filter(o => o.data?.userAdded) ?? [] })
+      fromCanvas?.loadFromJSON(lastRedo.redo.fromJson, () => { recolorCanvas(fromCanvas, themeRef.current); fromCanvas.renderAll(); userObjectsRef.current[lastRedo.fromIdx] = lastRedo.redo.fromJson.objects?.filter(o => o.data?.userAdded) ?? []; try { localStorage.setItem(USER_OBJECTS_KEY, JSON.stringify(userObjectsRef.current)) } catch {} })
+      toCanvas?.loadFromJSON(lastRedo.redo.toJson,     () => { recolorCanvas(toCanvas, themeRef.current);   toCanvas.renderAll();   userObjectsRef.current[lastRedo.toIdx]   = lastRedo.redo.toJson.objects?.filter(o => o.data?.userAdded) ?? [];   try { localStorage.setItem(USER_OBJECTS_KEY, JSON.stringify(userObjectsRef.current)) } catch {} })
       setCanUndo(true); setCanRedo(false)
       return
     }
@@ -978,6 +1001,7 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
     canvas.loadFromJSON(h.stack[h.idx], () => {
       recolorCanvas(canvas, themeRef.current); canvas.renderAll()
       userObjectsRef.current[idx] = h.stack[h.idx].objects.filter(o => o.data?.userAdded)
+      try { localStorage.setItem(USER_OBJECTS_KEY, JSON.stringify(userObjectsRef.current)) } catch {}
     })
     setCanUndo(true); setCanRedo(h.idx < h.stack.length-1)
   }, [])
@@ -1069,18 +1093,32 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
   const handleAddImage = useCallback(() => fileInputRef.current?.click(), [])
   const handleFileChange = useCallback((e) => {
     const file = e.target.files?.[0]; if (!file) return
-    const idx = activeIdxRef.current, ptr = lastPointerRef.current[idx]
+    const photoTarget = photoUploadTargetRef.current
+    photoUploadTargetRef.current = null
     const reader = new FileReader()
     reader.onload = (ev) => {
       const img = new Image()
       img.onload = () => {
         const fimg = new fabric.Image(img)
-        const scale = Math.min(240/fimg.width, 180/fimg.height, 1)
-        const x = ptr ? Math.max(0, Math.min(ptr.x, CW-fimg.width*scale)) : ML
-        const y = ptr ? Math.max(0, Math.min(ptr.y, CH-fimg.height*scale)) : 140
-        fimg.set({ left: x, top: y, scaleX: scale, scaleY: scale, data: { type: 'image-block', userAdded: true } }); sel(fimg)
-        const canvas = fabricInstances.current[idx]; if (!canvas) return
-        canvas.add(fimg); canvas.setActiveObject(fimg); canvas.renderAll(); pushHistoryRef.current(idx, canvas)
+        if (photoTarget) {
+          // Replace the photo placeholder with the uploaded image
+          const { canvasIdx, obj: placeholder, canvas: targetCanvas } = photoTarget
+          const phId = placeholder.data?.phId
+          const x = placeholder.left, y = placeholder.top, w = placeholder.width, h = placeholder.height
+          targetCanvas.getObjects().filter(o => o.data?.phId === phId).forEach(o => targetCanvas.remove(o))
+          const scale = Math.min(w / fimg.width, h / fimg.height)
+          fimg.set({ left: x, top: y, scaleX: scale, scaleY: scale, data: { type: 'image-block', userAdded: true } }); sel(fimg)
+          targetCanvas.add(fimg); targetCanvas.setActiveObject(fimg); targetCanvas.renderAll()
+          pushHistoryRef.current(canvasIdx, targetCanvas)
+        } else {
+          const idx = activeIdxRef.current, ptr = lastPointerRef.current[idx]
+          const scale = Math.min(240/fimg.width, 180/fimg.height, 1)
+          const x = ptr ? Math.max(0, Math.min(ptr.x, CW-fimg.width*scale)) : ML
+          const y = ptr ? Math.max(0, Math.min(ptr.y, CH-fimg.height*scale)) : 140
+          fimg.set({ left: x, top: y, scaleX: scale, scaleY: scale, data: { type: 'image-block', userAdded: true } }); sel(fimg)
+          const canvas = fabricInstances.current[idx]; if (!canvas) return
+          canvas.add(fimg); canvas.setActiveObject(fimg); canvas.renderAll(); pushHistoryRef.current(idx, canvas)
+        }
       }
       img.src = ev.target.result
     }
@@ -1130,6 +1168,8 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
     setDeletedPageIndices(newSet)
     crossPageOpsRef.current  = crossPageOpsRef.current.filter(op => op.fromIdx !== pageIdx && op.toIdx !== pageIdx)
     crossPageRedoRef.current = crossPageRedoRef.current.filter(op => op.fromIdx !== pageIdx && op.toIdx !== pageIdx)
+    delete userObjectsRef.current[pageIdx]
+    try { localStorage.setItem(USER_OBJECTS_KEY, JSON.stringify(userObjectsRef.current)) } catch {}
     if (activeIdxRef.current === pageIdx) {
       const allIdx = [...Array(totalCount).keys()]
       const visible = allIdx.filter(i => !newSet.has(i))
@@ -1158,12 +1198,13 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
       states,
       settings: { themeId, reportStyleId, fontPairId, customColor, customPageCount,
         deletedPages: [...deletedPageIndicesRef.current] },
+      dataSnapshot: (() => { const { images: _i, ...f } = data; return f })(),
     }
     try {
       localStorage.setItem(CANVAS_STORAGE_KEY, JSON.stringify(draft))
       setCanvasSaveTime(new Date())
     } catch { alert('Gem mislykkedes — lagerpladsen er fuld.') }
-  }, [themeId, reportStyleId, fontPairId, customColor, customPageCount])
+  }, [themeId, reportStyleId, fontPairId, customColor, customPageCount, data])
   handleSaveCanvasRef.current = handleSaveCanvas
 
   const handleExport = useCallback(async () => {

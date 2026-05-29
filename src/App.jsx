@@ -42,6 +42,8 @@ function AppInner() {
   const [showCloudTab, setShowCloudTab] = useState('save')
   const [showAuth, setShowAuth] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showNewReportConfirm, setShowNewReportConfirm] = useState(false)
+  const newReportRef = useRef(null)
   const [hasCanvasDraft, setHasCanvasDraft] = useState(() => !!localStorage.getItem('vsme_canvas_draft'))
   const [pendingCanvasDraft, setPendingCanvasDraft] = useState(null)
   const userMenuRef = useRef(null)
@@ -52,6 +54,9 @@ function AppInner() {
     function handleClick(e) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
         setShowUserMenu(false)
+      }
+      if (newReportRef.current && !newReportRef.current.contains(e.target)) {
+        setShowNewReportConfirm(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -164,6 +169,22 @@ function AppInner() {
                 Sign in
               </button>
             )}
+            <div className="new-report-wrap" ref={newReportRef}>
+              <button className="btn-new-report" onClick={() => setShowNewReportConfirm(o => !o)}>
+                + New Report
+              </button>
+              {showNewReportConfirm && (
+                <div className="new-report-dropdown">
+                  <p>Start a new blank report? All current data will be cleared.</p>
+                  <div className="new-report-actions">
+                    <button className="btn-new-report-confirm" onClick={() => {
+                      clearDraft(); setHasCanvasDraft(false); setPendingCanvasDraft(null); setShowNewReportConfirm(false)
+                    }}>Clear &amp; start new</button>
+                    <button className="btn-ghost-sm" onClick={() => setShowNewReportConfirm(false)}>Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
             {hasCanvasDraft && (
               <button className="btn-continue-canvas" onClick={() => setShowEditor(true)} title="Continue editing your saved canvas layout">
                 ✏ Continue editing
@@ -212,7 +233,7 @@ function AppInner() {
                 <div className="clear-confirm">
                   <p>Replace current data with a pre-filled example report?</p>
                   <div className="clear-confirm-btns">
-                    <button className="btn-demo-confirm" onClick={() => { loadDemo(); setShowDemoConfirm(false); setSidebarOpen(false) }}>Load</button>
+                    <button className="btn-demo-confirm" onClick={() => { loadDemo(); setHasCanvasDraft(false); setPendingCanvasDraft(null); setShowDemoConfirm(false); setSidebarOpen(false) }}>Load</button>
                     <button className="btn-ghost" onClick={() => setShowDemoConfirm(false)}>Cancel</button>
                   </div>
                 </div>
@@ -225,7 +246,7 @@ function AppInner() {
                 <div className="clear-confirm">
                   <p>Delete all saved data?</p>
                   <div className="clear-confirm-btns">
-                    <button className="btn-danger" onClick={() => { clearDraft(); setShowClearConfirm(false) }}>Delete</button>
+                    <button className="btn-danger" onClick={() => { clearDraft(); setHasCanvasDraft(false); setPendingCanvasDraft(null); setShowClearConfirm(false) }}>Delete</button>
                     <button className="btn-ghost" onClick={() => setShowClearConfirm(false)}>Cancel</button>
                   </div>
                 </div>

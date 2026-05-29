@@ -169,6 +169,9 @@ const initialData = {
   corruptionFinesTotal: '',
   corruptionNarrative: '',
 
+  // Appendix — Certifications & Standards
+  certificationsList: '',
+
   // Meta
   images: {},
 }
@@ -199,6 +202,7 @@ export function FormProvider({ children }) {
 
   const clearDraft = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem('vsme_canvas_draft')
     setData(initialData)
     setCurrentStep(0)
   }, [])
@@ -209,6 +213,8 @@ export function FormProvider({ children }) {
     // Images are too large for localStorage — save only text fields (matches autosave behaviour)
     const { images: _imgs, ...saveable } = merged
     localStorage.setItem(STORAGE_KEY, JSON.stringify(saveable))
+    // Clear any stale canvas draft so the editor regenerates from the new demo data
+    localStorage.removeItem('vsme_canvas_draft')
     setData(merged)
     setCurrentStep(0)
   }, [])

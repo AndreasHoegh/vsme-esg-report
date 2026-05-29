@@ -26,22 +26,25 @@ function yesNo(v) {
 // Rough height estimator — used only for packing decisions, not for rendering
 function estimateBlockHeight(block) {
   switch (block.type) {
-    case 'section-band':   return 66
-    case 'kpi-row':        return 84
-    case 'data-table':     return Math.max(block.rows?.length || 0, 1) * 18 + 14
-    case 'policy-matrix':  return (block.rows?.length || 0) * 22 + 10
-    case 'subtitle':       return 24
-    case 'text-block':     return Math.ceil((block.content?.length || 0) / 90) * 14 + 22
-    case 'image':          return 206
-    case 'spacer':         return block.height || 16
-    default:               return 20
+    case 'section-band':       return 62
+    case 'kpi-row':            return 84
+    case 'data-table':         return Math.max(block.rows?.length || 0, 1) * 18 + 14
+    case 'policy-matrix':      return (block.rows?.length || 0) * 22 + 10
+    case 'subtitle':           return 22
+    case 'text-block':         return Math.ceil((block.content?.length || 0) / 120) * 14 + 22
+    case 'photo-placeholder':  return (block.height || 160) + 24
+    case 'text-photo':         return (block.height || 160) + 24
+    case 'esg-section-cover':  return 595
+    case 'image':              return 220
+    case 'spacer':             return block.height || 16
+    default:                   return 20
   }
 }
 
 // Pack B1–B11 sections onto as few pages as possible.
 // A new page is started when the next section wouldn't fit in the remaining space.
 function packSections(sections) {
-  const USABLE_H = 750 // conservative usable height per page (accounts for footer + margins)
+  const USABLE_H = 490 // conservative usable height per page (landscape A4: footer + margins)
   const SECTION_GAP = 20
   const pages = []
   let cur = null
@@ -68,29 +71,68 @@ function packSections(sections) {
   return pages
 }
 
+// ─── ESG divider page ─────────────────────────────────────────────────────────
+
+function buildESGDividerPage(letter, title, description, phId, imageSrc) {
+  return {
+    title: `${letter} — ${title}`,
+    badge: '',
+    blocks: [{ type: 'esg-section-cover', letter, title, description, phId, imageSrc }],
+  }
+}
+
 // ─── Top-level builder ────────────────────────────────────────────────────────
 
 export function buildAllPages(data) {
-  const sections = [
-    buildB1Page(data), buildB2Page(data), buildB3Page(data), buildB4Page(data),
-    buildB5Page(data), buildB6Page(data), buildB7Page(data), buildB8Page(data),
-    buildB9Page(data), buildB10Page(data), buildB11Page(data),
-  ].filter(Boolean)
+  // Pack each ESG category's sections independently so they don't bleed across dividers
+  const generalSections = [buildB1Page(data), buildB2Page(data)].filter(Boolean)
+  const eSections = [buildB3Page(data), buildB4Page(data), buildB5Page(data), buildB6Page(data), buildB7Page(data)].filter(Boolean)
+  const sSections = [buildB8Page(data), buildB9Page(data), buildB10Page(data)].filter(Boolean)
+  const gSections = [buildB11Page(data)].filter(Boolean)
 
-  const packedPages = packSections(sections)
+  const generalPacked = packSections(generalSections)
+  const ePacked       = packSections(eSections)
+  const sPacked       = packSections(sSections)
+  const gPacked       = packSections(gSections)
+
+  // Assemble in order, inserting divider pages before each category group
+  const allContentPages = [
+    ...generalPacked,
+    ...(ePacked.length > 0 ? [
+      buildESGDividerPage('E', 'Environment',
+        'Our environmental approach covers climate action, energy efficiency, pollution prevention, water stewardship, and circular waste management.',
+        'esg-e-photo', data.images?.esgEnvironmentPhoto),
+      ...ePacked,
+    ] : []),
+    ...(sPacked.length > 0 ? [
+      buildESGDividerPage('S', 'Social',
+        'Our social commitments centre on a safe, inclusive workplace — fair pay, skills development, and the well-being of every person in our team.',
+        'esg-s-photo', data.images?.esgSocialPhoto),
+      ...sPacked,
+    ] : []),
+    ...(gPacked.length > 0 ? [
+      buildESGDividerPage('G', 'Governance',
+        'Our governance framework upholds the highest standards of ethical conduct, anti-corruption, and transparent accountability to all stakeholders.',
+        'esg-g-photo', data.images?.esgGovernancePhoto),
+      ...gPacked,
+    ] : []),
+  ]
 
   // Badge → page-number map for the TOC (cover=1, toc=2, content starts at 3)
   const pageMap = {}
-  packedPages.forEach((page, i) => {
+  allContentPages.forEach((page, i) => {
     page.blocks
       .filter(b => b.type === 'section-band')
       .forEach(b => { pageMap[b.badge] = i + 3 })
   })
 
+  const certPage = buildCertificationsPage(data)
+
   return [
     buildCoverPage(data),
     buildTOCPage(pageMap),
-    ...packedPages,
+    ...allContentPages,
+    ...(certPage ? [certPage] : []),
   ]
 }
 
@@ -132,8 +174,10 @@ function buildB1Page(data) {
       )},
       ...(data.companyDescription ? [
         { type: 'subtitle', text: 'About the Company' },
-        { type: 'text-block', content: strip(data.companyDescription) },
-      ] : []),
+        { type: 'text-photo', content: strip(data.companyDescription), phId: 'b1-company-photo', height: 155, imageSrc: data.images?.companyPhoto },
+      ] : [
+        { type: 'photo-placeholder', phId: 'b1-company-photo', height: 155, imageSrc: data.images?.companyPhoto },
+      ]),
     ],
   }
 }
@@ -410,7 +454,7 @@ function buildB8Page(data) {
       )},
       ...(data.workforceNarrative ? [
         { type: 'subtitle', text: 'Workforce Narrative' },
-        { type: 'text-block', content: strip(data.workforceNarrative) },
+        { type: 'text-photo', content: strip(data.workforceNarrative), phId: 'b8-workforce-photo', height: 140, imageSrc: data.images?.workforcePhoto },
       ] : []),
     ],
   }
@@ -478,6 +522,60 @@ function buildB10Page(data) {
       ...(data.payNarrative ? [
         { type: 'subtitle', text: 'Pay & Training Narrative' },
         { type: 'text-block', content: strip(data.payNarrative) },
+      ] : []),
+    ],
+  }
+}
+
+// Appendix — Certifications & Standards
+function buildCertificationsPage(data) {
+  const lines = (data.certificationsList || '').split('\n').map(s => s.trim()).filter(Boolean)
+  const ohsCert = data.ohsCertification
+
+  // Aggregate all certifications
+  const certs = [...lines]
+  if (ohsCert && !certs.some(c => c.includes(ohsCert.split('(')[0].trim()))) {
+    certs.push(ohsCert)
+  }
+
+  // Auto-build standards used
+  const standards = [['Reporting Framework', 'VSME Basic Module (B1–B11), EFRAG 2023']]
+  if (data.scope1Emissions || data.scope2Emissions) {
+    standards.push(['GHG Accounting', data.methodologyDescription ? strip(data.methodologyDescription).split('.')[0] : 'GHG Protocol Corporate Standard (2004)'])
+  }
+  if (data.reportingPeriodStart && data.reportingPeriodEnd) {
+    standards.push(['Reporting Period', `${data.reportingPeriodStart} – ${data.reportingPeriodEnd}`])
+  }
+  if (data.reportingBasis) {
+    standards.push(['Reporting Basis', data.reportingBasis === 'individual' ? 'Individual (single entity)' : 'Consolidated (group)'])
+  }
+
+  if (!certs.length && standards.length <= 1) return null
+
+  const certRows = certs.map(c => {
+    const dashIdx = c.indexOf(' - ')
+    return dashIdx > -1
+      ? { label: c.slice(0, dashIdx).trim(), value: c.slice(dashIdx + 3).trim() }
+      : { label: c, value: '' }
+  })
+
+  return {
+    title: 'Certifications & Standards', badge: '', showFooter: true,
+    blocks: [
+      { type: 'section-band', badge: '', title: 'Certifications & Standards' },
+      ...(certRows.length > 0 ? [
+        { type: 'subtitle', text: 'Company Certifications & Permits' },
+        { type: 'data-table', rows: certRows },
+      ] : []),
+      { type: 'subtitle', text: 'Reporting Standards & Frameworks' },
+      { type: 'data-table', rows: standards.map(([label, value]) => ({ label, value })) },
+      ...(data.contactName || data.contactEmail ? [
+        { type: 'subtitle', text: 'Report Contact' },
+        { type: 'data-table', rows: rows(
+          ['Name',  data.contactName],
+          ['Email', data.contactEmail],
+          ['Phone', data.contactPhone],
+        )},
       ] : []),
     ],
   }
