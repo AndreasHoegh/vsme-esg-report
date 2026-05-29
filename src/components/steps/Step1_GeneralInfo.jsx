@@ -438,18 +438,38 @@ export default function Step1_GeneralInfo() {
       </section>
 
       <section className="form-section">
-        <h3>Company Logo / Photo</h3>
+        <h3>Cover Page Images</h3>
         <p className="section-desc">
-          Appears on the cover page of your exported PDF report.
+          These images appear on the cover page of your exported PDF report.
         </p>
-        <ImageUpload
-          fieldKey="logoImage"
-          value={data.images?.logoImage}
-          onChange={(key, val) =>
-            update({ images: { ...data.images, [key]: val } })
-          }
-          label="Company logo or facility photo (recommended: square or 4:3)"
-        />
+        <div className="form-grid form-grid--2">
+          <div>
+            <p className="section-desc" style={{ marginBottom: 8 }}>
+              <strong>Company Logo</strong> — shown top-left on the cover (recommended: transparent PNG, square)
+            </p>
+            <ImageUpload
+              fieldKey="logoImage"
+              value={data.images?.logoImage}
+              onChange={(key, val) =>
+                update({ images: { ...data.images, [key]: val } })
+              }
+              label="Upload company logo"
+            />
+          </div>
+          <div>
+            <p className="section-desc" style={{ marginBottom: 8 }}>
+              <strong>Cover Photo</strong> — large hero image filling the right side of the cover (recommended: landscape)
+            </p>
+            <ImageUpload
+              fieldKey="coverPhoto"
+              value={data.images?.coverPhoto}
+              onChange={(key, val) =>
+                update({ images: { ...data.images, [key]: val } })
+              }
+              label="Upload company/facility photo"
+            />
+          </div>
+        </div>
       </section>
 
       <section className="form-section">

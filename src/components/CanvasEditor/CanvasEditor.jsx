@@ -96,7 +96,7 @@ function makeSectionBand(badge, title, config, y) {
   ]
   if (hasBadge) {
     objs.push(sel(new fabric.Rect({ left: ML, top: y + 14, width: bw, height: 19, fill: theme.primary, rx: 9, ry: 9, strokeWidth: 0, data: { tr: 'p' } })))
-    objs.push(tb(badge, { left: ML, top: y + 16, width: bw, textAlign: 'center', fontSize: 8, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }))
+    objs.push(tb(badge, { left: ML, top: y + 18, width: bw, textAlign: 'center', fontSize: 8, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }))
   }
   objs.push(tb(title, { left: titleX, top: y + 11, width: CW - titleX - 42, fontSize: 18, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.heading, editable: true, data: { tr: 'pt', type: 'section-title' } }))
   objs.push(sel(new fabric.Line([ML, y + H, CW - ML, y + H], { stroke: theme.primary, strokeWidth: 0.8, opacity: 0.3, data: { tr: 'ps' } })))
@@ -118,11 +118,11 @@ function makeKpiBox(x, y, w, h, metric, config) {
 }
 
 function makeDataRow(x, y, w, label, value) {
-  const H = 18, objs = []
-  objs.push(sel(new fabric.Line([x, y+H, x+w, y+H], { stroke: '#e0e0e0', strokeWidth: 0.5 })))
-  objs.push(tb(label,                { left: x+4,       top: y+4, width: w*0.58,      fontSize: 8.5, fill: '#555555' }))
-  objs.push(tb(String(value || '—'), { left: x+w*0.58,  top: y+4, width: w*0.42-4,   fontSize: 8.5, fontWeight: '600', fill: '#1a1a1a', textAlign: 'right' }))
-  return objs
+  const labelW = Math.round(w * 0.38)
+  return [
+    tb(label,                { left: x+4,        top: y+5, width: labelW,       fontSize: 8.5, fill: '#888888' }),
+    tb(String(value || '—'), { left: x+labelW+8, top: y+5, width: w-labelW-12,  fontSize: 8.5, fontWeight: '600', fill: '#1a1a1a' }),
+  ]
 }
 
 // ─── Subtitle ────────────────────────────────────────────────────────────────
@@ -130,8 +130,8 @@ function makeDataRow(x, y, w, label, value) {
 function makeSubtitle(x, y, text, config) {
   const { fontPair } = config
   return [
-    tb(text.toUpperCase(), { left: x, top: y+2, width: CONTENT_W, fontSize: 7.5, fontWeight: 'bold', fill: '#888888', fontFamily: fontPair.body, charSpacing: 100 }),
-    sel(new fabric.Line([x, y+16, x+CONTENT_W, y+16], { stroke: '#dddddd', strokeWidth: 0.5 })),
+    tb(text.toUpperCase(), { left: x, top: y+10, width: CONTENT_W, fontSize: 7.5, fontWeight: 'bold', fill: '#888888', fontFamily: fontPair.body, charSpacing: 100 }),
+    sel(new fabric.Line([x, y+24, x+CONTENT_W, y+24], { stroke: '#dddddd', strokeWidth: 0.5 })),
   ]
 }
 
@@ -176,7 +176,15 @@ async function applyBlock(canvas, block, config, y) {
     case 'data-table': {
       const rows = block.rows || []
       if (!rows.length) return y
-      rows.forEach(r => { makeDataRow(ML, y, CONTENT_W, r.label, r.value).forEach(o => canvas.add(o)); y += 18 })
+      const ROW_H = 20
+      const singleCol = block.columns === 1
+      const colW = singleCol ? CONTENT_W : Math.floor((CONTENT_W - 20) / 2)
+      for (let i = 0; i < rows.length; i += singleCol ? 1 : 2) {
+        makeDataRow(ML, y, colW, rows[i].label, rows[i].value).forEach(o => canvas.add(o))
+        if (!singleCol && rows[i+1]) makeDataRow(ML + colW + 20, y, colW, rows[i+1].label, rows[i+1].value).forEach(o => canvas.add(o))
+        canvas.add(sel(new fabric.Line([ML, y+ROW_H, ML+CONTENT_W, y+ROW_H], { stroke: '#e0e0e0', strokeWidth: 0.5 })))
+        y += ROW_H
+      }
       return y + 6
     }
 
@@ -219,7 +227,7 @@ async function applyBlock(canvas, block, config, y) {
 
     case 'subtitle':
       makeSubtitle(ML, y, block.text, config).forEach(o => canvas.add(o))
-      return y + 22
+      return y + 30
 
     case 'text-block': {
       const content = (block.content || '').trim()
@@ -339,14 +347,8 @@ async function applyBlock(canvas, block, config, y) {
         data: { tr: 'd' },
       }))
 
-      // Small pill badge
-      const badgeLabel = `${letter}  —  ${secTitle.toUpperCase()}`
-      const badgeW = badgeLabel.length * 5 + 20
-      canvas.add(sel(new fabric.Rect({ left: ML, top: CH/2 - 74, width: badgeW, height: 18, fill: 'rgba(255,255,255,0.18)', rx: 9, ry: 9, strokeWidth: 0 })))
-      canvas.add(tb(badgeLabel, { left: ML, top: CH/2 - 73, width: badgeW, textAlign: 'center', fontSize: 7, fontWeight: 'bold', fill: '#ffffff', charSpacing: 60, fontFamily: fontPair.body }))
-
       // Section title
-      canvas.add(tb(secTitle, { left: ML, top: CH/2 - 42, width: leftW - ML - 20, fontSize: 30, fontWeight: 'bold', fill: '#ffffff', fontFamily: fontPair.heading, editable: true }))
+      canvas.add(tb(secTitle, { left: ML, top: CH/2 - 56, width: leftW - ML - 20, fontSize: 30, fontWeight: 'bold', fill: '#ffffff', fontFamily: fontPair.heading, editable: true }))
 
       // Accent underline
       canvas.add(sel(new fabric.Rect({ left: ML, top: CH/2 + 4, width: 48, height: 3, fill: 'rgba(255,255,255,0.45)', rx: 1, strokeWidth: 0 })))
@@ -454,50 +456,100 @@ function renderCoverBlock(canvas, data, config) {
 
 function renderCoverESG365(canvas, data, config) {
   const { theme, fontPair } = config
-  const leftW = Math.round(CW * 0.52)
-  const rightX = leftW + 18
-  const rightW = CW - rightX - 10
+  const leftW = Math.round(CW * 0.50)   // 421px left panel
+  const rightX = leftW                   // photo starts immediately
+  const rightW = CW - rightX             // 421px right panel
   const phId = 'cover-photo'
 
+  // White background
   canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: CW, height: CH, fill: '#ffffff', strokeWidth: 0 })))
-  canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: 5, height: CH, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
-  canvas.add(sel(new fabric.Rect({ left: ML, top: 26, width: 132, height: 22, fill: theme.primary, rx: 11, ry: 11, strokeWidth: 0, data: { tr: 'p' } })))
-  canvas.add(tb('VSME  ·  BASIC MODULE', { left: ML, top: 31, width: 132, textAlign: 'center', fontSize: 7.5, fontWeight: 'bold', fill: '#fff', charSpacing: 80, fontFamily: fontPair.body }))
-  canvas.add(tb(data?.companyName||'Company Name', { left: ML, top: 76, width: leftW - 28, fontSize: 36, fontWeight: 'bold', fill: '#1a1a1a', fontFamily: fontPair.heading }))
-  canvas.add(sel(new fabric.Rect({ left: ML, top: 148, width: 56, height: 4, fill: theme.primary, rx: 2, strokeWidth: 0, data: { tr: 'p' } })))
-  const sub = [data?.sector, data?.country].filter(Boolean).join('  ·  ')
-  if (sub) canvas.add(tb(sub, { left: ML, top: 162, width: leftW - 28, fontSize: 11, fill: '#555555', fontFamily: fontPair.body }))
-  canvas.add(tb(`Sustainability Report  ${data?.reportingYear||new Date().getFullYear()}`, { left: ML, top: 184, width: leftW - 28, fontSize: 9, fill: '#888888', fontStyle: 'italic', fontFamily: fontPair.body }))
-  canvas.add(tb('Prepared in accordance with VSME Basic Module (B1–B11)', { left: ML, top: 207, width: leftW - 28, fontSize: 8, fill: '#aaaaaa', fontFamily: fontPair.body }))
-  if (data?.images?.logoImage) loadLogoAsync(canvas, data.images.logoImage, ML, CH - 110, 100, 72)
-  if (data?.contactName) canvas.add(tb(data.contactName + (data?.contactEmail ? '  ·  '+data.contactEmail : ''), { left: ML, top: CH - 44, width: leftW - 28, fontSize: 8, fill: '#888888', fontFamily: fontPair.body }))
 
-  // Right side — cover photo or dashed placeholder
+  // Left accent stripe
+  canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: 5, height: CH, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
+
+  // Logo — top-left
+  if (data?.images?.logoImage) {
+    loadLogoAsync(canvas, data.images.logoImage, ML, 20, 120, 58)
+  } else {
+    canvas.add(sel(new fabric.Rect({ left: ML, top: 20, width: 90, height: 46, fill: '#f5f5f5', stroke: '#dddddd', strokeWidth: 1, rx: 3, ry: 3, strokeDashArray: [4,3], data: { tr: 'l' } })))
+    canvas.add(tb('LOGO', { left: ML, top: 38, width: 90, textAlign: 'center', fontSize: 8, fill: '#cccccc', fontFamily: fontPair.body }))
+  }
+
+  // Company name — large headline
+  canvas.add(tb(data?.companyName || 'Company Name', {
+    left: ML, top: 112, width: leftW - 28, fontSize: 28, fontWeight: 'bold', fill: '#1a1a1a', fontFamily: fontPair.heading,
+  }))
+
+  // Accent bar
+  canvas.add(sel(new fabric.Rect({ left: ML, top: 182, width: 44, height: 3, fill: theme.primary, rx: 1.5, strokeWidth: 0, data: { tr: 'p' } })))
+
+  // Sector + Country
+  const sub = [data?.sector, data?.country].filter(Boolean).join('  ·  ')
+  if (sub) canvas.add(tb(sub, { left: ML, top: 193, width: leftW - 28, fontSize: 9.5, fill: '#555555', fontFamily: fontPair.body }))
+
+  // Company description excerpt
+  const rawDesc = data?.companyDescription
+    ? data.companyDescription.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+    : ''
+  if (rawDesc) {
+    const excerpt = rawDesc.length > 240 ? rawDesc.slice(0, 240) + '…' : rawDesc
+    canvas.add(tb(excerpt, {
+      left: ML, top: 216, width: leftW - 28, fontSize: 8.5, fill: '#666666', lineHeight: 1.55, fontFamily: fontPair.body,
+    }))
+  }
+
+  // Year + compliance note (lower section)
+  canvas.add(tb(`Sustainability Report  ${data?.reportingYear || new Date().getFullYear()}`, {
+    left: ML, top: CH - 72, width: leftW - 28, fontSize: 8.5, fill: '#888888', fontStyle: 'italic', fontFamily: fontPair.body,
+  }))
+  canvas.add(tb('Prepared in accordance with VSME Basic Module (B1–B11)', {
+    left: ML, top: CH - 56, width: leftW - 28, fontSize: 7.5, fill: '#aaaaaa', fontFamily: fontPair.body,
+  }))
+
+  // Contact info at bottom-left
+  if (data?.contactName) {
+    canvas.add(tb(data.contactName + (data?.contactEmail ? '  ·  ' + data.contactEmail : ''), {
+      left: ML, top: CH - 36, width: leftW - 28, fontSize: 7.5, fill: '#888888', fontFamily: fontPair.body,
+    }))
+  }
+
+  // Right side — full-bleed cover photo
   if (data?.images?.coverPhoto) {
     const coverImg = new Image()
     coverImg.onload = () => {
       const fimg = new fabric.Image(coverImg)
-      const scale = Math.min(rightW / fimg.width, (CH - 30) / fimg.height)
-      fimg.set({ left: rightX, top: 15, scaleX: scale, scaleY: scale, data: { type: 'image-block', phId } })
+      const scaleX = rightW / fimg.width
+      const scaleY = CH / fimg.height
+      const scale = Math.max(scaleX, scaleY)
+      const scaledW = fimg.width * scale
+      const scaledH = fimg.height * scale
+      fimg.set({
+        left: rightX + (rightW - scaledW) / 2,
+        top: (CH - scaledH) / 2,
+        scaleX: scale, scaleY: scale,
+        data: { type: 'image-block', phId },
+      })
       sel(fimg); canvas.add(fimg); canvas.renderAll()
     }
     coverImg.src = data.images.coverPhoto
   } else {
     canvas.add(sel(new fabric.Rect({
-      left: rightX, top: 15, width: rightW, height: CH - 30,
-      fill: '#f0f0f0', strokeWidth: 1.5, stroke: '#cccccc',
-      strokeDashArray: [8, 4], rx: 6, ry: 6,
+      left: rightX, top: 0, width: rightW, height: CH,
+      fill: '#f0f0f0', strokeWidth: 0,
       data: { type: 'photo-placeholder', phId },
     })))
-    canvas.add(tb('Double-click to add photo', {
-      left: rightX, top: CH/2 - 8, width: rightW,
+    canvas.add(sel(new fabric.Rect({ left: rightX, top: 0, width: rightW, height: CH, fill: '#e8e8e8', strokeWidth: 1.5, stroke: '#cccccc', strokeDashArray: [8, 4], data: { tr: 'l' } })))
+    canvas.add(tb('Double-click to add\ncompany photo', {
+      left: rightX, top: CH / 2 - 20, width: rightW,
       textAlign: 'center', fontSize: 9, fill: '#bbbbbb',
       fontFamily: fontPair.body, editable: false,
       data: { type: 'photo-label', phId },
     }))
   }
-  // Decorative accent corner
-  canvas.add(sel(new fabric.Rect({ left: CW - 36, top: 0, width: 36, height: 36, fill: theme.light, strokeWidth: 0, data: { tr: 'l' } })))
+
+  // Thin vertical divider between panels
+  canvas.add(sel(new fabric.Line([rightX, 0, rightX, CH], { stroke: '#e0e0e0', strokeWidth: 1 })))
+
   return CH
 }
 
@@ -530,7 +582,7 @@ function renderTOCBlock(canvas, config, pageMap, presentBadges) {
     const bW = badge.length > 2 ? bW_wide : bW_std
 
     canvas.add(sel(new fabric.Rect({ left: ML, top: y+6, width: bW, height: 18, fill: theme.primary, rx: 9, ry: 9, strokeWidth: 0, data: { tr: 'p' } })))
-    canvas.add(tb(badge, { left: ML, top: y+8, width: bW, textAlign: 'center', fontSize: 7.5, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }))
+    canvas.add(tb(badge, { left: ML, top: y+10, width: bW, textAlign: 'center', fontSize: 7.5, fontWeight: 'bold', fill: '#fff', fontFamily: fontPair.body }))
     canvas.add(tb(title, { left: ML+bW+10, top: y+7, width: CONTENT_W-bW-56, fontSize: 11, fill: '#334155', fontFamily: fontPair.body }))
     canvas.add(tb(pageMap[badge] ? String(pageMap[badge]) : '—', { left: ML+CONTENT_W-36, top: y+7, width: 36, textAlign: 'right', fontSize: 11, fontWeight: 'bold', fill: theme.primary, fontFamily: fontPair.body, data: { tr: 'pt' } }))
     canvas.add(sel(new fabric.Line([ML, y+rowH, ML+CONTENT_W, y+rowH], { stroke: '#eeeeee', strokeWidth: 0.5 })))

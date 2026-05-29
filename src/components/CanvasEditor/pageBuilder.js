@@ -28,9 +28,13 @@ function estimateBlockHeight(block) {
   switch (block.type) {
     case 'section-band':       return 58  // actual applyBlock return: y+58
     case 'kpi-row':            return 76  // actual: bh(64)+12=76
-    case 'data-table':         return Math.max(block.rows?.length || 0, 1) * 18 + 14
+    case 'data-table': {
+      const n = block.rows?.length || 0
+      const step = block.columns === 1 ? n : Math.ceil(n / 2)
+      return Math.max(step, 1) * 20 + 14
+    }
     case 'policy-matrix':      return (block.rows?.length || 0) * 22 + (block.skipped?.length ? 20 : 0) + 10
-    case 'subtitle':           return 22
+    case 'subtitle':           return 30
     case 'text-block':         return Math.ceil((block.content?.length || 0) / 120) * 14 + 22
     case 'photo-placeholder':  return (block.height || 160) + 24
     case 'text-photo':         return (block.height || 160) + 24
@@ -666,10 +670,10 @@ function buildCertificationsPage(data) {
       { type: 'section-band', badge: 'CERT', title: 'Certifications & Standards' },
       ...(certRows.length > 0 ? [
         { type: 'subtitle', text: 'Company Certifications & Permits' },
-        { type: 'data-table', rows: certRows },
+        { type: 'data-table', columns: 1, rows: certRows },
       ] : []),
       { type: 'subtitle', text: 'Reporting Standards & Frameworks' },
-      { type: 'data-table', rows: standards.map(([label, value]) => ({ label, value })) },
+      { type: 'data-table', columns: 1, rows: standards.map(([label, value]) => ({ label, value })) },
       ...(data.contactName || data.contactEmail ? [
         { type: 'subtitle', text: 'Report Contact' },
         { type: 'data-table', rows: rows(

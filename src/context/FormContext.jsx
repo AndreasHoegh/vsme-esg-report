@@ -211,7 +211,7 @@ export function FormProvider({ children }) {
   }, [])
 
   const loadDemo = useCallback(() => {
-    const images = createDemoImages()
+    const images = { ...demoData.images, ...createDemoImages() }
     const merged = { ...initialData, ...demoData, images }
     // Images are too large for localStorage — save only text fields (matches autosave behaviour)
     const { images: _imgs, ...saveable } = merged
