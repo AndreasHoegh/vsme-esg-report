@@ -151,7 +151,7 @@ function makeFooter(pageNum, company, config) {
 async function renderPage(canvas, pageSpec, config, pageNum, companyName) {
   canvas.clear()
   canvas.backgroundColor = '#ffffff'
-  let y = 0
+  let y = pageSpec.blocks[0]?.type === 'section-band' ? 0 : 18
   for (const block of pageSpec.blocks) y = await applyBlock(canvas, block, config, y)
   if (pageSpec.badge || pageSpec.showFooter) makeFooter(pageNum, companyName, config).forEach(o => canvas.add(o))
   canvas.renderAll()
