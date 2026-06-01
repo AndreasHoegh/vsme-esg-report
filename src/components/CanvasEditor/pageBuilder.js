@@ -35,6 +35,10 @@ function estimateBlockHeight(block) {
     }
     case 'policy-matrix':      return (block.rows?.length || 0) * 22 + (block.skipped?.length ? 20 : 0) + 10
     case 'subtitle':           return 30
+    case 'ghg-scope-chart': {
+      const count = [block.scope1, block.scope2, block.scope3].filter(v => v > 0).length
+      return 24 + count * 38 + 10
+    }
     case 'text-block':         return Math.ceil((block.content?.length || 0) / 120) * 14 + 22
     case 'photo-placeholder':  return (block.height || 160) + 24
     case 'text-photo':         return (block.height || 160) + 24
@@ -359,6 +363,7 @@ function buildB3Page(data) {
         s3 > 0 && { label: 'Scope 3', value: s3, unit: data.ghgUnit || 'tCO2e' },
         totalGHG > 0 && { label: 'Total GHG', value: totalGHG.toFixed(2), unit: data.ghgUnit || 'tCO2e' },
       ].filter(Boolean) },
+      ...(s1 > 0 || s2 > 0 ? [{ type: 'ghg-scope-chart', scope1: s1, scope2: s2, scope3: s3 > 0 ? s3 : null, unit: data.ghgUnit || 'tCO2e' }] : []),
       { type: 'data-table', rows: rows(
         ['GHG Intensity (per emp)', ghgIntEmp ? `${ghgIntEmp} ${data.ghgUnit || 'tCO2e'}/emp` : ''],
         ['GHG Base Year',          data.ghgBaseYear],

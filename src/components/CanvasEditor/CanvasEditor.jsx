@@ -193,6 +193,43 @@ async function applyBlock(canvas, block, config, y) {
       return y + 6
     }
 
+    case 'ghg-scope-chart': {
+      const { scope1, scope2, scope3, unit } = block
+      const { theme, fontPair } = config
+      const bars = [
+        scope1 > 0 && { label: 'Scope 1  —  Direct',           value: scope1, color: '#f97316' },
+        scope2 > 0 && { label: 'Scope 2  —  Purchased Energy',  value: scope2, color: '#3b82f6' },
+        scope3 > 0 && { label: 'Scope 3  —  Value Chain',       value: scope3, color: '#8b5cf6' },
+      ].filter(Boolean)
+      if (!bars.length) return y
+
+      const labelW  = 160
+      const valW    = 90
+      const barAreaW = CONTENT_W - labelW - valW - 8
+      const maxVal  = Math.max(...bars.map(b => b.value))
+      const BAR_H   = 22
+      const ROW_H   = 38
+
+      // Title row
+      canvas.add(tb('EMISSIONS BY SCOPE', { left: ML, top: y + 6, width: CONTENT_W, fontSize: 7.5, fontWeight: 'bold', fill: '#888888', fontFamily: fontPair.body, charSpacing: 100 }))
+      canvas.add(sel(new fabric.Line([ML, y + 20, ML + CONTENT_W, y + 20], { stroke: '#eeeeee', strokeWidth: 0.5 })))
+      y += 24
+
+      bars.forEach(({ label, value, color }) => {
+        const barW = Math.max(4, Math.round((value / maxVal) * barAreaW))
+        // Background track
+        canvas.add(sel(new fabric.Rect({ left: ML + labelW, top: y + 7, width: barAreaW, height: BAR_H, fill: '#f1f5f9', rx: 4, ry: 4, strokeWidth: 0 })))
+        // Filled bar
+        canvas.add(sel(new fabric.Rect({ left: ML + labelW, top: y + 7, width: barW, height: BAR_H, fill: color, rx: 4, ry: 4, strokeWidth: 0 })))
+        // Scope label
+        canvas.add(tb(label, { left: ML, top: y + 11, width: labelW - 8, fontSize: 8.5, fill: '#444444', fontFamily: fontPair.body }))
+        // Value label
+        canvas.add(tb(`${Number(value).toFixed(2)} ${unit}`, { left: ML + labelW + barAreaW + 8, top: y + 11, width: valW, fontSize: 8.5, fontWeight: '600', fill: color, fontFamily: fontPair.body }))
+        y += ROW_H
+      })
+      return y + 10
+    }
+
     case 'policy-matrix': {
       const rows = block.rows || []
       if (!rows.length) return y

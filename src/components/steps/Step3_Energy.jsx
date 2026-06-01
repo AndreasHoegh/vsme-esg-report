@@ -302,6 +302,29 @@ export default function Step3_Energy() {
           </div>
         )}
 
+        {(scope1 > 0 || scope2 > 0) && (() => {
+          const bars = [
+            scope1 > 0 && { label: 'Scope 1 — Direct', value: scope1, color: '#f97316' },
+            scope2 > 0 && { label: 'Scope 2 — Purchased', value: scope2, color: '#3b82f6' },
+            scope3 > 0 && { label: 'Scope 3 — Value Chain', value: scope3, color: '#8b5cf6' },
+          ].filter(Boolean)
+          const maxVal = Math.max(...bars.map(b => b.value))
+          return (
+            <div className="scope-chart-preview">
+              <p className="scope-chart-title">Emissions by scope</p>
+              {bars.map(({ label, value, color }) => (
+                <div key={label} className="scope-chart-row">
+                  <span className="scope-chart-label">{label}</span>
+                  <div className="scope-chart-track">
+                    <div className="scope-chart-bar" style={{ width: `${(value / maxVal) * 100}%`, background: color }} />
+                  </div>
+                  <span className="scope-chart-value" style={{ color }}>{value.toFixed(2)} {gu}</span>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
+
         {ghgIntensityRevenue && (
           <CalcField label="GHG Intensity (per M revenue)" value={ghgIntensityRevenue}
             unit={`${gu}/M${data.currency || 'EUR'}`}
