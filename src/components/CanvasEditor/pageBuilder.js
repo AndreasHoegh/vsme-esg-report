@@ -72,7 +72,8 @@ function splitAt(blocks, maxH) {
 // Pack B1–B11 sections onto pages, allowing large sections to span multiple pages.
 // Small sections are merged with adjacent ones when space permits.
 function packSections(sections) {
-  const USABLE_H    = 550
+  const USABLE_H    = 550  // first page of a section (starts at y=0)
+  const CONT_H      = 510  // continuation pages (start at y=40 due to top margin)
   const SECTION_GAP = 20
   // Only attempt to overflow a section onto the current page if this much space remains.
   // Prevents splitting after just a section-band header with no content below it.
@@ -106,7 +107,7 @@ function packSections(sections) {
       merge(title, badge, chunk)
       if (rest.length) flush()
       remaining = rest
-      maxH = USABLE_H
+      maxH = CONT_H  // all pages after the first chunk are continuation pages (y=40 offset)
     }
   }
 
