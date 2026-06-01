@@ -634,6 +634,46 @@ function renderTOCBlock(canvas, config, pageMap, presentBadges) {
 
 // ─── PDF export ───────────────────────────────────────────────────────────────
 
+// Walks every Fabric text object on the canvas and writes it to the PDF as
+// invisible (opacity-0) text.  The PNG image provides the visual; this layer
+// makes the content selectable / copy-pasteable in any PDF reader.
+function addInvisibleTextLayer(doc, objects) {
+  const PX = 297 / 842   // logical-canvas-px → PDF mm  (both share the 72-dpi basis)
+
+  const invisGS = new doc.GState({ opacity: 0, fillOpacity: 0 })
+  const normGS  = new doc.GState({ opacity: 1, fillOpacity: 1 })
+  doc.setGState(invisGS)
+
+  for (const obj of objects) {
+    const raw = obj.text ?? obj._text
+    if (typeof raw !== 'string' || !raw.trim()) continue
+
+    const fontSize = Math.max(6, obj.fontSize || 9)
+    const left     = obj.left  || 0
+    const top      = obj.top   || 0
+    const width    = obj.width || 200
+    const align    = obj.textAlign || 'left'
+
+    doc.setFontSize(fontSize)
+
+    const x_mm      = left  * PX
+    const baseY_mm  = (top + fontSize * 0.85) * PX   // approx baseline
+    const w_mm      = width * PX
+    const lineH_mm  = fontSize * PX * 1.3
+    const anchorX   = align === 'center' ? x_mm + w_mm / 2
+                    : align === 'right'  ? x_mm + w_mm
+                    : x_mm
+
+    raw.split('\n').forEach((line, li) => {
+      if (!line.trim()) return
+      try { doc.text(line.trim(), anchorX, baseY_mm + li * lineH_mm, { align }) }
+      catch {}
+    })
+  }
+
+  doc.setGState(normGS)
+}
+
 async function waitForCanvasImages(canvas) {
   const imgs = canvas.getObjects().filter(o => o.type === 'image')
   if (!imgs.length) return
@@ -673,7 +713,8 @@ async function exportAllPagesToPDF(pages, allStates, config, companyName, report
       }
     })
     await new Promise(r => setTimeout(r, 120))
-    doc.addImage(exportEl.toDataURL('image/png'), 'PNG', 0, 0, 297, 210)
+    doc.addImage(exportEl.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 297, 210)
+    addInvisibleTextLayer(doc, offscreen.getObjects())
   }
   offscreen.dispose(); document.body.removeChild(exportEl)
   doc.save(`VSME_ESG_${(companyName||'Report').replace(/\s+/g,'_')}_${reportingYear||''}.pdf`)
