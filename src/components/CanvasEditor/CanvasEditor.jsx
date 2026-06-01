@@ -370,66 +370,107 @@ async function applyBlock(canvas, block, config, y) {
       })
 
     case 'esg-section-cover': {
-      const { letter, title: secTitle, description, phId, imageSrc } = block
+      const { letter, title: secTitle, description, phId, imageSrc,
+              focusAreas = [], year = '' } = block
       const { theme, fontPair } = config
-      const leftW  = Math.round(CW * 0.52)
-      const rightX = leftW + 16
-      const rightW = CW - rightX - 10
-      const rightH = CH - 20
 
-      canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: CW,   height: CH,   fill: '#ffffff', strokeWidth: 0 })))
+      // 49% left panel / 51% full-height photo
+      const leftW  = Math.round(CW * 0.49)   // 412
+      const rightX = leftW
+      const rightW = CW - rightX             // 430
+
+      // ── Canvas base + left panel
+      canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: CW,   height: CH, fill: '#ffffff', strokeWidth: 0 })))
       canvas.add(sel(new fabric.Rect({ left: 0, top: 0, width: leftW, height: CH, fill: theme.primary, strokeWidth: 0, data: { tr: 'p' } })))
 
-      // Large watermark letter
+      // ── Giant watermark letter — dominates the upper portion
       canvas.add(tb(letter, {
-        left: -30, top: 30, width: leftW + 60,
-        textAlign: 'center', fontSize: 240, fontWeight: 'bold',
-        fill: theme.dark, opacity: 0.15, fontFamily: fontPair.heading,
-        editable: false, selectable: false, evented: false,
-        data: { tr: 'd' },
+        left: -leftW * 0.12, top: -10, width: leftW * 1.24,
+        textAlign: 'center', fontSize: 220, fontWeight: 'bold',
+        fill: theme.dark, opacity: 0.10, fontFamily: fontPair.heading,
+        editable: false, selectable: false, evented: false, data: { tr: 'd' },
       }))
 
-      // Section title
-      canvas.add(tb(secTitle, { left: ML, top: CH/2 - 56, width: leftW - ML - 20, fontSize: 30, fontWeight: 'bold', fill: '#ffffff', fontFamily: fontPair.heading, editable: true }))
+      // ── Text block anchored at 40% down — below the letter
+      const textY = Math.round(CH * 0.40)   // ~238
 
-      // Accent underline
-      canvas.add(sel(new fabric.Rect({ left: ML, top: CH/2 + 4, width: 48, height: 3, fill: 'rgba(255,255,255,0.45)', rx: 1, strokeWidth: 0 })))
+      canvas.add(tb(secTitle.toUpperCase(), {
+        left: ML + 2, top: textY, width: leftW - ML - 14,
+        fontSize: 26, fontWeight: 'bold', fill: '#ffffff',
+        fontFamily: fontPair.heading, lineHeight: 1.1, charSpacing: 50, editable: true,
+      }))
 
-      // Description
+      // Short accent bar
+      canvas.add(sel(new fabric.Rect({ left: ML + 2, top: textY + 34, width: 34, height: 3, fill: '#ffffff', rx: 1, strokeWidth: 0, opacity: 0.55 })))
+
       if (description) {
-        canvas.add(tb(description, { left: ML, top: CH/2 + 18, width: leftW - ML - 20, fontSize: 9.5, fill: 'rgba(255,255,255,0.82)', fontFamily: fontPair.body, lineHeight: 1.6, editable: true }))
+        canvas.add(tb(description, {
+          left: ML + 2, top: textY + 46, width: leftW - ML - 14,
+          fontSize: 8, fill: 'rgba(255,255,255,0.68)', fontFamily: fontPair.body,
+          lineHeight: 1.65, editable: true,
+        }))
       }
 
-      // Decorative corner accent
-      canvas.add(sel(new fabric.Rect({ left: leftW - 36, top: 0, width: 36, height: 36, fill: theme.dark, opacity: 0.3, strokeWidth: 0 })))
+      // Hairline rule before focus list
+      canvas.add(sel(new fabric.Line(
+        [ML + 2, textY + 100, leftW - 14, textY + 100],
+        { stroke: 'rgba(255,255,255,0.16)', strokeWidth: 0.5 }
+      )))
 
+      // "OUR FOCUS AREAS" label
+      canvas.add(tb(`OUR FOCUS AREAS  ·  ${year || new Date().getFullYear()}`, {
+        left: ML + 2, top: textY + 108, width: leftW - ML - 14,
+        fontSize: 6.5, fontWeight: 'bold', fill: 'rgba(255,255,255,0.35)',
+        fontFamily: fontPair.body, charSpacing: 150, editable: false,
+      }))
+
+      // Focus area bullets — 3 rows × 52px
+      let faY = textY + 122
+      for (const fa of focusAreas.slice(0, 3)) {
+        canvas.add(sel(new fabric.Rect({
+          left: ML + 2, top: faY + 8, width: 10, height: 1.5,
+          fill: 'rgba(255,255,255,0.45)', strokeWidth: 0,
+        })))
+        canvas.add(tb(fa.title, {
+          left: ML + 18, top: faY + 3, width: leftW - ML - 30,
+          fontSize: 9.5, fontWeight: 'bold', fill: '#ffffff',
+          fontFamily: fontPair.body, editable: false,
+        }))
+        canvas.add(tb(fa.text, {
+          left: ML + 18, top: faY + 17, width: leftW - ML - 30,
+          fontSize: 7.5, fill: 'rgba(255,255,255,0.58)', fontFamily: fontPair.body,
+          lineHeight: 1.48, editable: false,
+        }))
+        faY += 52
+      }
+
+      // ── Right panel: full-height photo
       const phIdFinal = phId || `esg-${letter.toLowerCase()}-photo`
+
       if (imageSrc) {
         return new Promise(resolve => {
           const img = new Image()
           img.onload = () => {
             const fimg = new fabric.Image(img)
-            const scale = Math.min(rightW / fimg.width, rightH / fimg.height)
-            fimg.set({ left: rightX, top: 10, scaleX: scale, scaleY: scale, data: { type: 'image-block', phId: phIdFinal } })
-            sel(fimg); canvas.add(fimg); canvas.renderAll()
-            resolve(CH)
+            const scale = Math.max(rightW / fimg.width, CH / fimg.height)
+            fimg.set({
+              left: rightX, top: 0, scaleX: scale, scaleY: scale,
+              clipPath: new fabric.Rect({ left: rightX, top: 0, width: rightW, height: CH, absolutePositioned: true }),
+              data: { type: 'image-block', phId: phIdFinal },
+            })
+            sel(fimg); canvas.add(fimg); canvas.renderAll(); resolve(CH)
           }
-          img.onerror = () => resolve(CH)
+          img.onerror = () => {
+            canvas.add(sel(new fabric.Rect({ left: rightX, top: 0, width: rightW, height: CH, fill: '#cdd5df', strokeWidth: 0, data: { type: 'photo-placeholder', phId: phIdFinal } })))
+            canvas.add(tb('Double-click to add photo', { left: rightX, top: CH / 2 - 8, width: rightW, textAlign: 'center', fontSize: 9, fill: '#8a97a8', fontFamily: 'Arial', editable: false, data: { type: 'photo-label', phId: phIdFinal } }))
+            canvas.renderAll(); resolve(CH)
+          }
           img.src = imageSrc
         })
       }
-      canvas.add(sel(new fabric.Rect({
-        left: rightX, top: 10, width: rightW, height: rightH,
-        fill: '#f0f0f0', strokeWidth: 1.5, stroke: '#cccccc',
-        strokeDashArray: [8, 4], rx: 6, ry: 6,
-        data: { type: 'photo-placeholder', phId: phIdFinal },
-      })))
-      canvas.add(tb('Double-click to add photo', {
-        left: rightX, top: 10 + rightH/2 - 8, width: rightW,
-        textAlign: 'center', fontSize: 9, fill: '#bbbbbb',
-        fontFamily: 'Arial', editable: false,
-        data: { type: 'photo-label', phId: phIdFinal },
-      }))
+
+      canvas.add(sel(new fabric.Rect({ left: rightX, top: 0, width: rightW, height: CH, fill: '#cdd5df', strokeWidth: 0, data: { type: 'photo-placeholder', phId: phIdFinal } })))
+      canvas.add(tb('Double-click to add photo', { left: rightX, top: CH / 2 - 8, width: rightW, textAlign: 'center', fontSize: 9, fill: '#8a97a8', fontFamily: 'Arial', editable: false, data: { type: 'photo-label', phId: phIdFinal } }))
       return CH
     }
 

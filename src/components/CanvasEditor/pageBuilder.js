@@ -139,12 +139,21 @@ function packSections(sections) {
 
 // ─── ESG divider page ─────────────────────────────────────────────────────────
 
-function buildESGDividerPage(letter, title, description, phId, imageSrc) {
+function buildESGDividerPage(letter, title, description, phId, imageSrc, focusAreas = [], kpis = [], year = '') {
   return {
     title: `${letter} — ${title}`,
     badge: '',
-    blocks: [{ type: 'esg-section-cover', letter, title, description, phId, imageSrc }],
+    blocks: [{ type: 'esg-section-cover', letter, title, description, phId, imageSrc, focusAreas, kpis, year }],
   }
+}
+
+function fmtKpi(v, decimals = 0) {
+  const num = parseFloat(v)
+  if (!num && num !== 0) return '—'
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
+  if (num >= 10000)   return Math.round(num).toLocaleString()
+  if (decimals)       return num.toFixed(decimals)
+  return num % 1 === 0 ? String(Math.round(num)) : num.toFixed(1)
 }
 
 // ─── Top-level builder ────────────────────────────────────────────────────────
@@ -180,25 +189,93 @@ export function buildAllPages(data) {
 
   const sdgPage = buildSDGPage(data)
 
+  // ── Compute per-pillar KPIs and focus areas for divider pages
+  const year = data.reportingYear || String(new Date().getFullYear())
+
+  // E — Environment
+  const totalEnergy  = n(data.totalEnergyConsumption)
+  const renew        = n(data.renewableEnergyConsumption)
+  const renewPct     = totalEnergy > 0 && renew > 0 ? ((renew / totalEnergy) * 100).toFixed(1) : null
+  const eS1          = n(data.scope1Emissions), eS2 = n(data.scope2Emissions)
+  const eWater       = n(data.totalWaterWithdrawal)
+
+  const eFocusAreas = [
+    { title: 'Climate & Energy',         text: 'Tracking and reducing energy consumption and GHG emissions across our operations.' },
+    { title: 'Water & Biodiversity',     text: 'Responsible water management and safeguarding natural ecosystems.' },
+    { title: 'Circular Economy & Waste', text: 'Minimising waste generation and promoting circular resource flows throughout our value chain.' },
+  ]
+  const eKpis = [
+    { topLabel: 'ENERGY USE',  value: fmtKpi(totalEnergy), unit: data.energyUnit || 'MWh',      subLabel: 'total consumed' },
+    { topLabel: 'GHG SCOPE 1+2', value: fmtKpi(eS1 + eS2), unit: data.ghgUnit || 'tCO2e',       subLabel: 'direct emissions' },
+    renewPct
+      ? { topLabel: 'RENEWABLE', value: renewPct,           unit: '%',                           subLabel: 'energy share' }
+      : { topLabel: 'WATER USE', value: fmtKpi(eWater),     unit: data.waterUnit || 'm³',         subLabel: 'total withdrawal' },
+  ]
+
+  // S — Social
+  const totalEmp  = n(data.totalEmployees)
+  const femaleEmp = n(data.femaleEmployees)
+  const femalePct = totalEmp > 0 && femaleEmp > 0 ? ((femaleEmp / totalEmp) * 100).toFixed(0) : null
+  const injuries  = n(data.workRelatedInjuries)
+
+  const sFocusAreas = [
+    { title: 'Workforce & Inclusion', text: 'Building a diverse, inclusive team where every employee can thrive.' },
+    { title: 'Health & Safety',       text: 'Zero-harm working environment with robust OHS management systems.' },
+    { title: 'Pay & Development',     text: 'Fair wages, equal opportunities, and continuous skills development for all.' },
+  ]
+  const sKpis = [
+    { topLabel: 'EMPLOYEES',    value: fmtKpi(totalEmp),                    unit: 'FTE',    subLabel: 'total workforce' },
+    femalePct
+      ? { topLabel: 'FEMALE',   value: femalePct,                           unit: '%',      subLabel: 'of workforce' }
+      : { topLabel: 'INJURIES', value: fmtKpi(injuries),                    unit: 'cases',  subLabel: 'work-related' },
+    data.avgTrainingHours
+      ? { topLabel: 'TRAINING', value: fmtKpi(data.avgTrainingHours, 1),    unit: 'hrs',    subLabel: 'avg per employee' }
+      : { topLabel: 'INJURIES', value: fmtKpi(injuries),                    unit: 'cases',  subLabel: 'work-related' },
+  ]
+
+  // G — Governance
+  const POLICY_FIELDS = [
+    'policyClimate','policyPollution','policyWaterMarine','policyBiodiversity','policyCircular',
+    'policyOwnWorkforce','policyValueChain','policyCommunities','policyConsumers','policyGovernance',
+  ]
+  const PUBLIC_FIELDS = [
+    'policyClimatePublic','policyPollutionPublic','policyWaterMarinePublic','policyBiodiversityPublic',
+    'policyCircularPublic','policyOwnWorkforcePublic','policyValueChainPublic','policyCommunitiesPublic',
+    'policyConsumersPublic','policyGovernancePublic',
+  ]
+  const adoptedCount = POLICY_FIELDS.filter(f => data[f] === 'yes' || data[f] === 'in-progress' || data[f] === 'in_progress').length
+  const publicCount  = PUBLIC_FIELDS.filter(f => data[f] === 'yes').length
+
+  const gFocusAreas = [
+    { title: 'Anti-Corruption',  text: 'Zero tolerance for bribery and corruption across all business activities.' },
+    { title: 'Transparency',     text: 'Open, accurate, and timely disclosure of ESG performance to all stakeholders.' },
+    { title: 'Ethical Conduct',  text: 'Strong governance policies and a culture of integrity throughout the organisation.' },
+  ]
+  const gKpis = [
+    { topLabel: 'POLICIES',     value: adoptedCount > 0 ? String(adoptedCount) : '—', unit: 'adopted',   subLabel: 'of 10 ESG topics' },
+    { topLabel: 'PUBLIC',       value: publicCount  > 0 ? String(publicCount)  : '—', unit: 'disclosed', subLabel: 'policies available' },
+    { topLabel: 'CONVICTIONS',  value: fmtKpi(n(data.corruptionConvictions)),          unit: 'cases',     subLabel: 'corruption' },
+  ]
+
   // Assemble in order, inserting divider pages before each category group
   const allContentPages = [
     ...generalPacked,
     ...(ePacked.length > 0 ? [
       buildESGDividerPage('E', 'Environment',
         'Our environmental approach covers climate action, energy efficiency, pollution prevention, water stewardship, and circular waste management.',
-        'esg-e-photo', data.images?.esgEnvironmentPhoto),
+        'esg-e-photo', data.images?.esgEnvironmentPhoto, eFocusAreas, eKpis, year),
       ...ePacked,
     ] : []),
     ...(sPacked.length > 0 ? [
       buildESGDividerPage('S', 'Social',
         'Our social commitments centre on a safe, inclusive workplace — fair pay, skills development, and the well-being of every person in our team.',
-        'esg-s-photo', data.images?.esgSocialPhoto),
+        'esg-s-photo', data.images?.esgSocialPhoto, sFocusAreas, sKpis, year),
       ...sPacked,
     ] : []),
     ...(gPacked.length > 0 ? [
       buildESGDividerPage('G', 'Governance',
         'Our governance framework upholds the highest standards of ethical conduct, anti-corruption, and transparent accountability to all stakeholders.',
-        'esg-g-photo', data.images?.esgGovernancePhoto),
+        'esg-g-photo', data.images?.esgGovernancePhoto, gFocusAreas, gKpis, year),
       ...gPacked,
     ] : []),
     ...(sdgPage ? [sdgPage] : []),
