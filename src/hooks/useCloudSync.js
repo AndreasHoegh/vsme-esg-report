@@ -112,6 +112,9 @@ export function useCloudSync() {
       } else {
         localStorage.removeItem('vsme_canvas_draft')
       }
+      // Always clear per-page canvas overrides so the loaded report's data is reflected
+      // rather than stale overrides from a previous session on this device.
+      localStorage.removeItem('vsme_canvas_page_overrides')
       return { formData, canvasDraft }
     } catch (e) {
       setError(e.message)

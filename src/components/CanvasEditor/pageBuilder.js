@@ -286,19 +286,19 @@ export function buildAllPages(data) {
     ...(ePacked.length > 0 ? [
       buildESGDividerPage('E', 'Environment',
         'Our environmental approach covers climate action, energy efficiency, pollution prevention, water stewardship, and circular waste management.',
-        'esg-e-photo', data.images?.esgEnvironmentPhoto, eFocusAreas, eKpis, year),
+        'esg-e-photo', data.images?.['esg-e-photo'] || data.images?.esgEnvironmentPhoto, eFocusAreas, eKpis, year),
       ...ePacked,
     ] : []),
     ...(sPacked.length > 0 ? [
       buildESGDividerPage('S', 'Social',
         'Our social commitments centre on a safe, inclusive workplace — fair pay, skills development, and the well-being of every person in our team.',
-        'esg-s-photo', data.images?.esgSocialPhoto, sFocusAreas, sKpis, year),
+        'esg-s-photo', data.images?.['esg-s-photo'] || data.images?.esgSocialPhoto, sFocusAreas, sKpis, year),
       ...sPacked,
     ] : []),
     ...(gPacked.length > 0 ? [
       buildESGDividerPage('G', 'Governance',
         'Our governance framework upholds the highest standards of ethical conduct, anti-corruption, and transparent accountability to all stakeholders.',
-        'esg-g-photo', data.images?.esgGovernancePhoto, gFocusAreas, gKpis, year),
+        'esg-g-photo', data.images?.['esg-g-photo'] || data.images?.esgGovernancePhoto, gFocusAreas, gKpis, year),
       ...gPacked,
     ] : []),
     ...(sdgPage ? [sdgPage] : []),
@@ -364,9 +364,9 @@ function buildB1Page(data) {
       )},
       ...(data.companyDescription ? [
         { type: 'subtitle', text: 'About the Company' },
-        { type: 'text-photo', content: strip(data.companyDescription), phId: 'b1-company-photo', height: 155, imageSrc: data.images?.companyPhoto },
+        { type: 'text-photo', content: strip(data.companyDescription), phId: 'b1-company-photo', height: 155, imageSrc: data.images?.['b1-company-photo'] || data.images?.companyPhoto },
       ] : [
-        { type: 'photo-placeholder', phId: 'b1-company-photo', height: 155, imageSrc: data.images?.companyPhoto },
+        { type: 'photo-placeholder', phId: 'b1-company-photo', height: 155, imageSrc: data.images?.['b1-company-photo'] || data.images?.companyPhoto },
       ]),
     ],
   }
@@ -731,7 +731,7 @@ function buildB8Page(data) {
       )},
       ...(data.workforceNarrative ? [
         { type: 'subtitle', text: 'Workforce Narrative' },
-        { type: 'text-photo', content: strip(data.workforceNarrative), phId: 'b8-workforce-photo', height: 140, imageSrc: data.images?.workforcePhoto },
+        { type: 'text-photo', content: strip(data.workforceNarrative), phId: 'b8-workforce-photo', height: 140, imageSrc: data.images?.['b8-workforce-photo'] || data.images?.workforcePhoto || data.images?.workforceImage },
       ] : []),
     ],
   }

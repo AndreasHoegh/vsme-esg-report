@@ -1671,8 +1671,9 @@ function renderCoverESG365(canvas, data, config) {
     );
   }
 
-  // Right side — full-bleed cover photo
-  if (data?.images?.coverPhoto) {
+  // Right side — full-bleed cover photo (check phId key first, then form-upload key)
+  const coverPhotoSrc = data?.images?.['cover-photo'] || data?.images?.coverPhoto;
+  if (coverPhotoSrc) {
     const coverImg = new Image();
     coverImg.onload = () => {
       const fimg = new fabric.Image(coverImg);
@@ -1692,7 +1693,7 @@ function renderCoverESG365(canvas, data, config) {
       canvas.add(fimg);
       canvas.renderAll();
     };
-    coverImg.src = data.images.coverPhoto;
+    coverImg.src = coverPhotoSrc;
   } else {
     canvas.add(
       sel(
@@ -2328,20 +2329,26 @@ export default function CanvasEditor({
     reportStyleMountedRef.current = false;
     fontPairMountedRef.current = false;
 
-    // pendingCanvasDraft (from cloud load) takes priority. Otherwise load from localStorage
-    // only if the draft's dataSnapshot still matches the current form data.
-    let localDraft = pendingCanvasDraft;
-    if (!localDraft) {
+    // Resolve which draft to use. Both the cloud draft and the local draft are validated
+    // against the current form data — if the snapshot no longer matches, pages regenerate
+    // from fresh data instead of showing stale canvas content.
+    const { images: _imgIgnore, ...currentForm } = data;
+    const isStale = (draft) => {
+      if (!draft) return true;
+      const snap = draft.dataSnapshot;
+      return !snap || JSON.stringify(snap) !== JSON.stringify(currentForm);
+    };
+
+    let localDraft = null;
+    if (pendingCanvasDraft && !isStale(pendingCanvasDraft)) {
+      localDraft = pendingCanvasDraft;
+    } else if (!pendingCanvasDraft) {
       try {
         const raw = JSON.parse(
           localStorage.getItem(CANVAS_STORAGE_KEY) || "null",
         );
         if (raw) {
-          const snap = raw.dataSnapshot;
-          const { images: _i, ...currentForm } = data;
-          const stale =
-            !snap || JSON.stringify(snap) !== JSON.stringify(currentForm);
-          if (!stale) localDraft = raw;
+          if (!isStale(raw)) localDraft = raw;
           else localStorage.removeItem(CANVAS_STORAGE_KEY);
         }
       } catch {}
@@ -2565,9 +2572,9 @@ export default function CanvasEditor({
         });
       } else if (savedState) {
         canvas.loadFromJSON(savedState, () => {
-          recolorCanvas(canvas, configRef.current.theme);
-          canvas.renderAll();
-          historyRef.current[i] = { stack: [canvas.toJSON(["data"])], idx: 0 };
+          _restoreImgSrc(canvas, data.images, configRef.current.theme, () => {
+            historyRef.current[i] = { stack: [canvas.toJSON(["data"])], idx: 0 };
+          });
         });
       } else {
         renderPage(
