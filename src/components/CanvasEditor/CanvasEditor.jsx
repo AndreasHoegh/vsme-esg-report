@@ -2271,12 +2271,16 @@ export default function CanvasEditor({
       setCanRedo(false);
     }
     userObjectsRef.current[idx] = json.objects.filter((o) => o.data?.userAdded);
-    // Persist user-placed objects immediately to a separate key that survives draft invalidation.
+    // Persist user-placed objects. Strip phId image srcs to save localStorage space —
+    // they're stored in vsme_esg_images and restored on load. In-memory copy keeps full srcs.
     try {
-      localStorage.setItem(
-        USER_OBJECTS_KEY,
-        JSON.stringify(userObjectsRef.current),
-      );
+      const toStore = {};
+      Object.entries(userObjectsRef.current).forEach(([k, objs]) => {
+        toStore[k] = objs.map((o) =>
+          o.type === "image" && o.data?.phId ? { ...o, src: "" } : o,
+        );
+      });
+      localStorage.setItem(USER_OBJECTS_KEY, JSON.stringify(toStore));
     } catch {}
     // Save full page state as an override. Strip image src before persisting (restored from
     // data.images on load). Include a form data snapshot so stale overrides are discarded
@@ -3571,7 +3575,9 @@ export default function CanvasEditor({
     fabricInstances.current.forEach((canvas, i) => {
       if (canvas) {
         try {
-          states[i] = canvas.toJSON(["data"]);
+          // Strip phId image srcs — they're stored once in vsme_esg_images and
+          // restored via _restoreImgSrc on load, so embedding them here wastes storage.
+          states[i] = _stripImgSrc(canvas.toJSON(["data"]));
         } catch {}
       }
     });
