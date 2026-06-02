@@ -3,11 +3,13 @@ import { fabric } from 'fabric'
 import jsPDF from 'jspdf'
 import { buildAllPages } from './pageBuilder'
 import { SDG_ICON_DATA, SDG_COLORS } from '../../data/sdgIcons'
+import { useForm } from '../../context/FormContext'
 import './CanvasEditor.css'
 
 const CW = 842
-const CANVAS_STORAGE_KEY = 'vsme_canvas_draft'
-const USER_OBJECTS_KEY   = 'vsme_canvas_user_objects'
+const CANVAS_STORAGE_KEY  = 'vsme_canvas_draft'
+const USER_OBJECTS_KEY    = 'vsme_canvas_user_objects'
+const PAGE_OVERRIDES_KEY  = 'vsme_canvas_page_overrides'
 const CH = 595
 const ML = 30
 const CONTENT_W = CW - ML * 2
@@ -30,6 +32,40 @@ const FONT_PAIRS = [
   { id: 'humanist',  label: 'Humanist',  heading: 'Trebuchet MS',    body: 'Verdana' },
   { id: 'classic',   label: 'Classic',   heading: 'Times New Roman', body: 'Georgia' },
 ]
+
+// Strip src only from programmatic images (those with a phId) — they can be reloaded from
+// data.images. User-added images (userAdded: true, no phId) keep their full src because
+// they have no other persistent source.
+function _stripImgSrc(json) {
+  if (!json?.objects) return json
+  return {
+    ...json,
+    objects: json.objects.map(o =>
+      o.type === 'image' && o.data?.phId
+        ? { ...o, src: '' }
+        : o
+    ),
+  }
+}
+
+// Re-populate stripped phId images from the live form images map, then call onDone.
+function _restoreImgSrc(canvas, images, theme, onDone) {
+  const imgObjs = canvas.getObjects().filter(
+    o => o.type === 'image' && !o.getSrc?.() && o.data?.phId
+  )
+  recolorCanvas(canvas, theme)
+  if (!imgObjs.length) { canvas.renderAll(); onDone(); return }
+  let pending = imgObjs.length
+  const checkDone = () => { if (--pending <= 0) { canvas.renderAll(); onDone() } }
+  imgObjs.forEach(imgObj => {
+    const src = images?.[imgObj.data.phId]
+    if (!src) { checkDone(); return }
+    const el = new Image()
+    el.onload = () => { imgObj.setElement(el); imgObj.dirty = true; checkDone() }
+    el.onerror = checkDone
+    el.src = src
+  })
+}
 
 function hexToRgb(hex) {
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
@@ -474,6 +510,63 @@ async function applyBlock(canvas, block, config, y) {
       return CH
     }
 
+    case 'sdg-list': {
+      // List-style SDG renderer: icon square + goal name + narrative + citation
+      const { goals: sdgGoals = [] } = block
+      if (!sdgGoals.length) return y
+      const { fontPair } = config
+      const iconSize = 42
+      const textX    = ML + iconSize + 12
+      const textW    = CONTENT_W - iconSize - 12
+
+      sdgGoals.forEach((goal, idx) => {
+        const textLines = Math.max(2, Math.ceil((goal.narrative?.length || 0) / 108))
+        const rowH = Math.max(62, 12 + 14 + textLines * 12 + 14 + 12)
+
+        // Alternating row background
+        if (idx % 2 === 1) {
+          canvas.add(sel(new fabric.Rect({ left: ML, top: y, width: CONTENT_W, height: rowH, fill: '#f4f6f8', strokeWidth: 0 })))
+        }
+
+        // Colored SDG icon square
+        canvas.add(sel(new fabric.Rect({ left: ML, top: y + 10, width: iconSize, height: iconSize, fill: goal.color, rx: 3, ry: 3, strokeWidth: 0 })))
+        canvas.add(tb(String(goal.num), {
+          left: ML, top: y + 10 + (iconSize / 2) - 9, width: iconSize,
+          textAlign: 'center', fontSize: 14, fontWeight: 'bold', fill: '#ffffff',
+          fontFamily: fontPair.heading, editable: false,
+        }))
+
+        // Goal name
+        canvas.add(tb(goal.name, {
+          left: textX, top: y + 10, width: textW,
+          fontSize: 10, fontWeight: 'bold', fill: '#1a1a1a',
+          fontFamily: fontPair.body, editable: false,
+        }))
+
+        // Narrative text
+        if (goal.narrative) {
+          canvas.add(tb(goal.narrative, {
+            left: textX, top: y + 25, width: textW,
+            fontSize: 8.5, fill: '#444444', fontFamily: fontPair.body,
+            lineHeight: 1.55, editable: false,
+          }))
+        }
+
+        // "Inspired by N. Name" citation in goal color
+        canvas.add(tb(`Inspired by ${goal.num}. ${goal.name}`, {
+          left: textX, top: y + rowH - 16, width: textW,
+          fontSize: 7.5, fill: goal.color, fontFamily: fontPair.body,
+          fontStyle: 'italic', editable: false,
+        }))
+
+        // Bottom separator
+        canvas.add(sel(new fabric.Line([ML, y + rowH, ML + CONTENT_W, y + rowH], { stroke: '#e5e7eb', strokeWidth: 0.5 })))
+
+        y += rowH
+      })
+      return y + 6
+    }
+
     case 'sdg-grid': {
       // Only render goals the company has selected
       const selectedNums = (block.selectedGoals || []).map(Number).sort((a, b) => a - b)
@@ -764,6 +857,10 @@ async function exportAllPagesToPDF(pages, allStates, config, companyName, report
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null }) {
+  const { update: updateForm } = useForm()
+  const dataRef = useRef(data)
+  dataRef.current = data
+
   const canvasElRefs      = useRef([])
   const fabricInstances   = useRef([])
   const pageContainerRefs = useRef([])
@@ -774,6 +871,16 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
   const lastPointerRef    = useRef({})
   const updateSelColorRef = useRef(null)
   const userObjectsRef    = useRef({}) // per-page cache of user-added objects, always up to date
+  const pagesRef          = useRef(null) // kept in sync each render for use in callbacks
+  // Per-page canvas overrides — survive data changes, keyed by page index.
+  // Structure: { pageCount: N, states: { [idx]: fabricJSON } }
+  const pageOverridesRef  = useRef(null)
+  if (pageOverridesRef.current === null) {
+    try {
+      pageOverridesRef.current = JSON.parse(localStorage.getItem(PAGE_OVERRIDES_KEY) || 'null')
+                                  || { pageCount: 0, states: {} }
+    } catch { pageOverridesRef.current = { pageCount: 0, states: {} } }
+  }
   const nudgeTimerRef     = useRef(null)
   const prevFontPairRef   = useRef(null) // tracks previous font pair for in-place font swapping
   const autoSaveTimerRef  = useRef(null)
@@ -828,6 +935,10 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
   )
   const [customPageCount, setCustomPageCount] = useState(savedDraft?.settings?.customPageCount ?? 0)
   const [canvasSaveTime, setCanvasSaveTime]   = useState(null)
+  // Pages that have been manually edited — shown with an indicator; data changes won't overwrite them
+  const [customizedPages, setCustomizedPages] = useState(
+    () => new Set(Object.keys(pageOverridesRef.current.states).map(Number))
+  )
 
   const _initDeleted = savedDraft?.settings?.deletedPages?.length ? new Set(savedDraft.settings.deletedPages) : new Set()
   const deletedPageIndicesRef = useRef(_initDeleted)
@@ -848,6 +959,7 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
   useEffect(() => { configRef.current = config }, [config])
 
   const pages = useMemo(() => buildAllPages(data), [data])
+  pagesRef.current = pages // keep ref in sync without extra effect
 
   const setActiveIdx = useCallback((i) => {
     activeIdxRef.current = i; _setActiveIdx(i)
@@ -866,6 +978,12 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
     userObjectsRef.current[idx] = json.objects.filter(o => o.data?.userAdded)
     // Persist user-placed objects immediately to a separate key that survives draft invalidation.
     try { localStorage.setItem(USER_OBJECTS_KEY, JSON.stringify(userObjectsRef.current)) } catch {}
+    // Save full page state as an override — survives form data changes so layout edits are preserved.
+    // Strip image src before persisting (images can be megabytes; they're restored from data.images on load).
+    pageOverridesRef.current.states[idx] = _stripImgSrc(json)
+    pageOverridesRef.current.pageCount = pagesRef.current?.length ?? 0
+    try { localStorage.setItem(PAGE_OVERRIDES_KEY, JSON.stringify(pageOverridesRef.current)) } catch {}
+    setCustomizedPages(prev => prev.has(idx) ? prev : new Set([...prev, idx]))
     // New action on this page invalidates any pending cross-page redos involving it
     crossPageRedoRef.current = crossPageRedoRef.current.filter(op => op.fromIdx !== idx && op.toIdx !== idx)
     // Debounced auto-save to localStorage after any canvas change (2s idle)
@@ -914,6 +1032,13 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
           else localStorage.removeItem(CANVAS_STORAGE_KEY)
         }
       } catch {}
+    }
+
+    // If the saved overrides are for a different page count, they're stale — clear them.
+    if (pageOverridesRef.current.pageCount !== 0 && pageOverridesRef.current.pageCount !== pages.length) {
+      pageOverridesRef.current = { pageCount: pages.length, states: {} }
+      try { localStorage.removeItem(PAGE_OVERRIDES_KEY) } catch {}
+      setCustomizedPages(new Set())
     }
 
     const instances = new Array(pages.length).fill(null)
@@ -1006,8 +1131,16 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
           canvas.setActiveObject(obj); obj.enterEditing(); canvas.renderAll()
         }
       })
+      // Priority: page override (user's manual edits) > saved draft > rebuild from data
+      const override   = pageOverridesRef.current.states[i]
       const savedState = localDraft?.states?.[i]
-      if (savedState) {
+      if (override) {
+        canvas.loadFromJSON(override, () => {
+          _restoreImgSrc(canvas, data.images, configRef.current.theme, () => {
+            historyRef.current[i] = { stack: [canvas.toJSON(['data'])], idx: 0 }
+          })
+        })
+      } else if (savedState) {
         canvas.loadFromJSON(savedState, () => {
           recolorCanvas(canvas, configRef.current.theme)
           canvas.renderAll()
@@ -1040,10 +1173,12 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
   // Theme change — recolor only
   useEffect(() => { fabricInstances.current.forEach(c => { if (c) recolorCanvas(c, theme) }) }, [theme]) // eslint-disable-line
 
-  // Helper: re-render all pages, preserving user-added objects
+  // Helper: re-render all pages, preserving user-added objects.
+  // Pages with manual overrides are skipped — the user's layout is preserved.
   const rerenderAll = useCallback(() => {
     fabricInstances.current.forEach((canvas, i) => {
       if (!canvas || !pages[i] || deletedPageIndicesRef.current.has(i)) return
+      if (pageOverridesRef.current.states[i]) return  // user customized — don't overwrite
       const savedUserObjs = userObjectsRef.current[i] || []
       renderPage(canvas, pages[i], configRef.current, i+1, data.companyName).then(() => {
         const finish = () => {
@@ -1322,12 +1457,27 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
           // Replace the photo placeholder with the uploaded image
           const { canvasIdx, obj: placeholder, canvas: targetCanvas } = photoTarget
           const phId = placeholder.data?.phId
-          const x = placeholder.left, y = placeholder.top, w = placeholder.width, h = placeholder.height
+          const x = placeholder.left, y = placeholder.top
+          const w = placeholder.width * (placeholder.scaleX || 1)
+          const h = placeholder.height * (placeholder.scaleY || 1)
           targetCanvas.getObjects().filter(o => o.data?.phId === phId).forEach(o => targetCanvas.remove(o))
-          const scale = Math.min(w / fimg.width, h / fimg.height)
-          fimg.set({ left: x, top: y, scaleX: scale, scaleY: scale, data: { type: 'image-block', userAdded: true } }); sel(fimg)
+          const isCoverStyle = h >= CH - 5
+          const scale = isCoverStyle
+            ? Math.max(w / fimg.width, h / fimg.height)
+            : Math.min(w / fimg.width, h / fimg.height)
+          const scaledW = fimg.width * scale
+          const scaledH = fimg.height * scale
+          const imgLeft = isCoverStyle ? x - (scaledW - w) / 2 : x
+          const imgTop  = isCoverStyle ? y - (scaledH - h) / 2 : y
+          fimg.set({
+            left: imgLeft, top: imgTop, scaleX: scale, scaleY: scale,
+            ...(isCoverStyle ? { clipPath: new fabric.Rect({ left: x, top: y, width: w, height: h, absolutePositioned: true }) } : {}),
+            data: { type: 'image-block', phId: phId || undefined, userAdded: true },
+          })
+          sel(fimg)
           targetCanvas.add(fimg); targetCanvas.setActiveObject(fimg); targetCanvas.renderAll()
           pushHistoryRef.current(canvasIdx, targetCanvas)
+          if (phId) updateForm({ images: { ...(dataRef.current.images || {}), [phId]: ev.target.result } })
         } else {
           const idx = activeIdxRef.current, ptr = lastPointerRef.current[idx]
           const scale = Math.min(240/fimg.width, 180/fimg.height, 1)
@@ -1409,6 +1559,27 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
   const handleAddBlankPage = useCallback(() => { setCustomPageCount(c => c + 1) }, [])
 
   const handlePageJump = useCallback((idx) => { setActiveIdx(idx); pageContainerRefs.current[idx]?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [setActiveIdx])
+  const handleResetCurrentPage = useCallback(() => {
+    const i = activeIdxRef.current
+    const canvas = fabricInstances.current[i]
+    const page = pagesRef.current?.[i]
+    if (!canvas || !page) return
+    if (!window.confirm('Reset this page to the current form data? Your manual layout edits will be lost.')) return
+    delete pageOverridesRef.current.states[i]
+    try { localStorage.setItem(PAGE_OVERRIDES_KEY, JSON.stringify(pageOverridesRef.current)) } catch {}
+    setCustomizedPages(prev => { const n = new Set(prev); n.delete(i); return n })
+    const savedUserObjs = userObjectsRef.current[i] || []
+    renderPage(canvas, page, configRef.current, i+1, data.companyName).then(() => {
+      const finish = () => { historyRef.current[i] = { stack: [canvas.toJSON(['data'])], idx: 0 }; setCanUndo(false); setCanRedo(false) }
+      if (savedUserObjs.length) {
+        fabric.util.enlivenObjects(savedUserObjs, objs => {
+          objs.forEach(o => { o.set({ borderColor: '#2563eb', cornerColor: '#2563eb', cornerStyle: 'circle', cornerSize: 9, transparentCorners: false, padding: 2 }); canvas.add(o) })
+          recolorCanvas(canvas, themeRef.current); canvas.renderAll(); finish()
+        })
+      } else finish()
+    })
+  }, [data]) // eslint-disable-line
+
   const handleSaveCanvas = useCallback(() => {
     const states = {}
     fabricInstances.current.forEach((canvas, i) => { if (canvas) { try { states[i] = canvas.toJSON(['data']) } catch {} } })
@@ -1562,6 +1733,12 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
                 className="ce-color-input-overlay" />
             </label>
           </div>
+          {customizedPages.has(activeIdx) && (
+            <button className="ce-btn-reset-page" onClick={handleResetCurrentPage}
+              title="Rebuild this page from your form data, discarding manual layout edits">
+              ↺ Reset page
+            </button>
+          )}
           <button className="ce-btn-save" onClick={handleSaveCanvas} title="Save canvas draft now (also auto-saves 2s after changes)">
             {canvasSaveTime ? `Saved ${canvasSaveTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Save draft'}
           </button>
@@ -1635,6 +1812,7 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
                 style={{ '--pc': theme.primary }} onClick={() => handlePageJump(i)}>
                 <span className="ce-page-num">{i + 1}</span>
                 <span className="ce-page-title">{p.title}</span>
+                {customizedPages.has(i) && <span className="ce-page-custom-dot" title="Layout customized — data changes won't affect this page" />}
               </button>
             ))}
             {Array.from({ length: customPageCount }, (_, ci) => {
@@ -1670,6 +1848,7 @@ export default function CanvasEditor({ data, onClose, pendingCanvasDraft = null 
               style={deletedPageIndices.has(i) ? { display: 'none' } : undefined}>
               <div className="ce-page-block-label">
                 <span>Page {i + 1} — {page.title}</span>
+                {customizedPages.has(i) && <span className="ce-page-custom-label" title="This page has manual layout edits. Use 'Reset page' in the toolbar to rebuild from data.">✦ customized</span>}
                 <button
                   className="ce-page-delete-btn"
                   title="Delete this page"

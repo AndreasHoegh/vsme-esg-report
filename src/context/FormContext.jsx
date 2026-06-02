@@ -174,6 +174,13 @@ const initialData = {
   // Appendix — Certifications & Standards
   certificationsList: '',
 
+  // SDG per-goal narratives { "3": "text...", "7": "text..." }
+  sdgGoalNarratives: {},
+
+  // B3 Energy — renewable splits (for electricity/fuels split in report)
+  electricityRenewable: '',
+  districtHeatingRenewable: '',
+
   // Meta
   images: {},
   excludedSections: [],
@@ -206,6 +213,7 @@ export function FormProvider({ children }) {
   const clearDraft = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem('vsme_canvas_draft')
+    localStorage.removeItem('vsme_canvas_page_overrides')
     setData(initialData)
     setCurrentStep(0)
   }, [])
@@ -218,6 +226,7 @@ export function FormProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(saveable))
     // Clear any stale canvas draft so the editor regenerates from the new demo data
     localStorage.removeItem('vsme_canvas_draft')
+    localStorage.removeItem('vsme_canvas_page_overrides')
     setData(merged)
     setCurrentStep(0)
   }, [])

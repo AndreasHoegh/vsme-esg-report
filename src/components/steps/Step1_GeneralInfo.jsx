@@ -548,17 +548,51 @@ export default function Step1_GeneralInfo() {
           })}
         </div>
         <FormField
-          label="SDG Narrative"
-          tooltip="Describe how the company works towards the selected goals."
+          label="SDG Overview Narrative"
+          tooltip="Optional intro text describing the company's overall approach to the SDGs."
         >
           <textarea
             className="form-textarea"
-            rows={4}
+            rows={3}
             value={data.sdgNarrative || ""}
             onChange={(e) => update({ sdgNarrative: e.target.value })}
-            placeholder="Describe the company's approach to the UN Sustainable Development Goals and the concrete activities that contribute to the selected goals…"
+            placeholder="Describe the company's overall approach to the UN Sustainable Development Goals…"
           />
         </FormField>
+
+        {data.sdgGoals?.length > 0 && (
+          <div style={{ marginTop: 20 }}>
+            <p className="section-desc" style={{ marginBottom: 12 }}>
+              Describe your company's specific contribution to each selected goal. These narratives appear individually in the report.
+            </p>
+            {[...(data.sdgGoals || [])].sort((a, b) => a - b).map((goalNum) => {
+              const goal = SDG_GOALS.find((g) => g.n === goalNum);
+              if (!goal) return null;
+              return (
+                <FormField
+                  key={goalNum}
+                  label={`SDG ${goalNum}: ${goal.name}`}
+                  tooltip={`Describe how your company contributes to goal ${goalNum} — ${goal.name}.`}
+                >
+                  <textarea
+                    className="form-textarea"
+                    rows={3}
+                    value={(data.sdgGoalNarratives || {})[goalNum] || ""}
+                    onChange={(e) =>
+                      update({
+                        sdgGoalNarratives: {
+                          ...(data.sdgGoalNarratives || {}),
+                          [goalNum]: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder={`Describe how your company contributes to ${goal.name}…`}
+                  />
+                </FormField>
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );
