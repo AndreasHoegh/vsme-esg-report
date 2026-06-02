@@ -2101,14 +2101,27 @@ export default function CanvasEditor({
   const updateSelColorRef = useRef(null);
   const userObjectsRef = useRef({}); // per-page cache of user-added objects, always up to date
   const pagesRef = useRef(null); // kept in sync each render for use in callbacks
-  // Per-page canvas overrides — survive data changes, keyed by page index.
-  // Structure: { pageCount: N, states: { [idx]: fabricJSON } }
+  // Per-page canvas overrides — keyed by page index.
+  // Structure: { pageCount: N, dataSnapshot: {...}, states: { [idx]: fabricJSON } }
+  // Cleared when form data has changed since the overrides were saved (dataSnapshot mismatch).
   const pageOverridesRef = useRef(null);
   if (pageOverridesRef.current === null) {
     try {
-      pageOverridesRef.current = JSON.parse(
-        localStorage.getItem(PAGE_OVERRIDES_KEY) || "null",
-      ) || { pageCount: 0, states: {} };
+      const stored = JSON.parse(localStorage.getItem(PAGE_OVERRIDES_KEY) || "null");
+      if (stored) {
+        const { images: _i, ...currentForm } = data;
+        const overrideStale =
+          !stored.dataSnapshot ||
+          JSON.stringify(stored.dataSnapshot) !== JSON.stringify(currentForm);
+        if (overrideStale) {
+          localStorage.removeItem(PAGE_OVERRIDES_KEY);
+          pageOverridesRef.current = { pageCount: 0, states: {} };
+        } else {
+          pageOverridesRef.current = stored;
+        }
+      } else {
+        pageOverridesRef.current = { pageCount: 0, states: {} };
+      }
     } catch {
       pageOverridesRef.current = { pageCount: 0, states: {} };
     }
@@ -2265,10 +2278,13 @@ export default function CanvasEditor({
         JSON.stringify(userObjectsRef.current),
       );
     } catch {}
-    // Save full page state as an override — survives form data changes so layout edits are preserved.
-    // Strip image src before persisting (images can be megabytes; they're restored from data.images on load).
+    // Save full page state as an override. Strip image src before persisting (restored from
+    // data.images on load). Include a form data snapshot so stale overrides are discarded
+    // on next load if the user has changed form data since these were saved.
     pageOverridesRef.current.states[idx] = _stripImgSrc(json);
     pageOverridesRef.current.pageCount = pagesRef.current?.length ?? 0;
+    const { images: _oi, ...overrideSnap } = dataRef.current;
+    pageOverridesRef.current.dataSnapshot = overrideSnap;
     try {
       localStorage.setItem(
         PAGE_OVERRIDES_KEY,
@@ -2584,7 +2600,11 @@ export default function CanvasEditor({
           i + 1,
           data.companyName,
         ).then(() => {
-          const savedUserObjs = userObjectsRef.current[i] || [];
+          // Exclude images that the page builder already rendered from data.images
+          // (identified by phId) to avoid duplicates on the canvas.
+          const savedUserObjs = (userObjectsRef.current[i] || []).filter(
+            (o) => !(o.type === "image" && o.data?.phId && data.images?.[o.data.phId]),
+          );
           const finish = () => {
             if (!historyRef.current[i])
               historyRef.current[i] = {
@@ -2635,7 +2655,9 @@ export default function CanvasEditor({
     fabricInstances.current.forEach((canvas, i) => {
       if (!canvas || !pages[i] || deletedPageIndicesRef.current.has(i)) return;
       if (pageOverridesRef.current.states[i]) return; // user customized — don't overwrite
-      const savedUserObjs = userObjectsRef.current[i] || [];
+      const savedUserObjs = (userObjectsRef.current[i] || []).filter(
+        (o) => !(o.type === "image" && o.data?.phId && data.images?.[o.data.phId]),
+      );
       renderPage(
         canvas,
         pages[i],
@@ -3512,7 +3534,9 @@ export default function CanvasEditor({
       n.delete(i);
       return n;
     });
-    const savedUserObjs = userObjectsRef.current[i] || [];
+    const savedUserObjs = (userObjectsRef.current[i] || []).filter(
+      (o) => !(o.type === "image" && o.data?.phId && data.images?.[o.data.phId]),
+    );
     renderPage(canvas, page, configRef.current, i + 1, data.companyName).then(
       () => {
         const finish = () => {

@@ -4,6 +4,7 @@ import { createDemoImages } from '../data/demoImages'
 
 const FormContext = createContext(null)
 const STORAGE_KEY = 'vsme_esg_draft'
+const IMAGES_KEY = 'vsme_esg_images'
 
 // ─── Which fields indicate a step has meaningful data (for sidebar checkmark) ──
 const STEP_INDICATOR_FIELDS = [
@@ -190,7 +191,12 @@ export function FormProvider({ children }) {
   const [data, setData] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
-      return saved ? { ...initialData, ...JSON.parse(saved) } : initialData
+      const images = (() => {
+        try { return JSON.parse(localStorage.getItem(IMAGES_KEY) || '{}') } catch { return {} }
+      })()
+      return saved
+        ? { ...initialData, ...JSON.parse(saved), images }
+        : { ...initialData, images }
     } catch { return initialData }
   })
 
@@ -202,6 +208,7 @@ export function FormProvider({ children }) {
       try {
         const { images, ...saveable } = data
         localStorage.setItem(STORAGE_KEY, JSON.stringify(saveable))
+        try { localStorage.setItem(IMAGES_KEY, JSON.stringify(images || {})) } catch {}
         setLastSaved(new Date())
       } catch {}
     }, 800)
@@ -212,6 +219,7 @@ export function FormProvider({ children }) {
 
   const clearDraft = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(IMAGES_KEY)
     localStorage.removeItem('vsme_canvas_draft')
     localStorage.removeItem('vsme_canvas_page_overrides')
     setData(initialData)
@@ -221,10 +229,9 @@ export function FormProvider({ children }) {
   const loadDemo = useCallback(() => {
     const images = { ...demoData.images, ...createDemoImages() }
     const merged = { ...initialData, ...demoData, images }
-    // Images are too large for localStorage — save only text fields (matches autosave behaviour)
     const { images: _imgs, ...saveable } = merged
     localStorage.setItem(STORAGE_KEY, JSON.stringify(saveable))
-    // Clear any stale canvas draft so the editor regenerates from the new demo data
+    try { localStorage.setItem(IMAGES_KEY, JSON.stringify(images)) } catch {}
     localStorage.removeItem('vsme_canvas_draft')
     localStorage.removeItem('vsme_canvas_page_overrides')
     setData(merged)
