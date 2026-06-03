@@ -2121,18 +2121,10 @@ export default function CanvasEditor({
   if (pageOverridesRef.current === null) {
     try {
       const stored = JSON.parse(localStorage.getItem(PAGE_OVERRIDES_KEY) || "null");
-      if (stored) {
-        const { images: _i, ...currentForm } = data;
-        const overrideStale = !snapshotMatchesForm(stored.dataSnapshot, currentForm);
-        if (overrideStale) {
-          localStorage.removeItem(PAGE_OVERRIDES_KEY);
-          pageOverridesRef.current = { pageCount: 0, states: {} };
-        } else {
-          pageOverridesRef.current = stored;
-        }
-      } else {
-        pageOverridesRef.current = { pageCount: 0, states: {} };
-      }
+      // Customised pages are user-owned layouts — they persist regardless of form data
+      // changes. The user explicitly resets a page via "Reset page". The only automatic
+      // clearing happens in loadReport (cross-device cloud load).
+      pageOverridesRef.current = stored || { pageCount: 0, states: {} };
     } catch {
       pageOverridesRef.current = { pageCount: 0, states: {} };
     }
