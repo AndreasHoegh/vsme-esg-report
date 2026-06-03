@@ -3581,8 +3581,14 @@ export default function CanvasEditor({
         } catch {}
       }
     });
+    // Record which pages have been manually customised. On cloud load another device
+    // uses this list to restore only those pages — all others fresh-render from form data.
+    const customizedPageIndices = Object.keys(
+      pageOverridesRef.current.states || {},
+    ).map(Number);
     const draft = {
       states,
+      customizedPageIndices,
       settings: {
         themeId,
         reportStyleId,

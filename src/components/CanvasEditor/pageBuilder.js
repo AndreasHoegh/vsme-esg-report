@@ -189,7 +189,7 @@ export function buildAllPages(data) {
     ex.has('B2') ? null : buildB2Page(data),
   ].filter(Boolean)
   const eSections = [
-    ex.has('B3') ? null : buildB3Page(data),
+    ...(ex.has('B3') ? [] : buildB3Pages(data)),
     ex.has('B4') ? null : buildB4Page(data),
     ex.has('B5') ? null : buildB5Page(data),
     ex.has('B6') ? null : buildB6Page(data),
@@ -416,105 +416,52 @@ function buildB2Page(data) {
   }
 }
 
-// B3 — Energy & GHG Emissions
-function buildB3Page(data) {
-  if (!data.totalEnergyConsumption && !data.renewableEnergyConsumption && !data.scope1Emissions && !data.scope2Emissions && !data.scope3Emissions && !data.energyNarrative && !data.ghgNarrative) return null
+// B3 — Energy & GHG Emissions (split into per-scope pages)
 
+function buildB3EnergyPage(data) {
   const total    = n(data.totalEnergyConsumption)
   const renew    = n(data.renewableEnergyConsumption)
-  const nonRenew = total > 0 ? total - renew : 0
   const s12E     = calcScope12Energy(data)
   const renewPct = s12E > 0 && renew > 0 ? ((renew / s12E) * 100).toFixed(1) : null
   const emp      = n(data.employeeCount)
   const eUnit    = data.energyUnit || 'MWh'
   const energyIntensity = total > 0 && emp > 0 ? (total / emp).toFixed(2) : null
 
-  const s1 = n(data.scope1Emissions), s2 = n(data.scope2Emissions), s3 = n(data.scope3Emissions)
-  const totalGHG  = s1 + s2 + s3
-  const ghgUnit   = data.ghgUnit || 'tCO2e'
-  const ghgIntEmp = totalGHG > 0 && emp > 0 ? (totalGHG / emp).toFixed(2) : null
-  const g = (v) => v ? `${v} ${ghgUnit}` : ''
-
-  // Electricity breakdown
-  const elec      = n(data.electricityConsumption)
-  const elecRenew = n(data.electricityRenewable)
+  const elec         = n(data.electricityConsumption)
+  const elecRenew    = n(data.electricityRenewable)
   const elecNonRenew = elec > 0 ? elec - elecRenew : 0
-
-  // Fuels & heating breakdown (individual sources)
-  const hasElec   = elec > 0
-  const hasFuels  = data.naturalGasConsumption || data.fuelOilConsumption || data.districtHeatingConsumption
-
-  // Scope 1 sub-categories
-  const s1Rows = rows(
-    ['Emissions from own facilities (stationary)', g(data.scope1Stationary)],
-    ['Emissions from own vehicles (mobile)',       g(data.scope1Mobile)],
-    ['Fugitive emissions (refrigerants, leaks)',   g(data.scope1Fugitive)],
-    ['Process emissions',                          g(data.scope1Process)],
-    ['Total Scope 1',                              g(data.scope1Emissions)],
-  )
-
-  // Scope 2 sub-categories
-  const s2Rows = rows(
-    ['Purchased electricity (market-based)',        g(data.scope2Emissions)],
-    ['Purchased electricity (location-based)',      g(data.scope2LocationBased)],
-    ['District heating / cooling component',        g(data.scope2Heating)],
-    [`Total CO₂eq — Scope 1 + 2`,                  s1 + s2 > 0 ? `${(s1 + s2).toFixed(2)} ${ghgUnit}` : ''],
-  )
-
-  // Scope 3 sub-categories
-  const s3Rows = rows(
-    ['Energy & processes (transmission losses)',    g(data.scope3BusinessTravel ? '' : '')],  // placeholder
-    ['Business travel',                             g(data.scope3BusinessTravel)],
-    ['Employee commuting',                          g(data.scope3Commuting)],
-    ['Procurement (goods, materials, services)',    g(data.scope3PurchasedGoods)],
-    ['Waste and recycling',                         g(data.scope3Waste)],
-    ['Upstream transport',                          g(data.scope3UpstreamTransport)],
-    ['Downstream transport (to customer)',          g(data.scope3DownstreamTransport)],
-    ['Use of sold products',                        g(data.scope3UseOfProducts)],
-    ['Total Scope 3',                               g(data.scope3Emissions)],
-    [`CO₂eq total (Scope 1+2+3)`,                  totalGHG > 0 ? `${totalGHG.toFixed(2)} ${ghgUnit}` : ''],
-  )
-
-  const hasS3Detail = data.scope3BusinessTravel || data.scope3Commuting || data.scope3PurchasedGoods ||
-                      data.scope3Waste || data.scope3UpstreamTransport || data.scope3DownstreamTransport || data.scope3UseOfProducts
+  const hasElec      = elec > 0
+  const hasFuels     = data.naturalGasConsumption || data.fuelOilConsumption || data.districtHeatingConsumption
 
   return {
-    title: 'B3 — Energy & GHG', badge: 'B3',
+    title: 'B3 — Energy', badge: 'B3',
     blocks: [
-      { type: 'section-band', badge: 'B3', title: 'Energy & GHG Emissions' },
-
-      // ── Energy overview KPIs
+      { type: 'section-band', badge: 'B3', title: 'Energy Consumption' },
       { type: 'kpi-row', metrics: [
         total && { label: 'Total Energy', value: total, unit: eUnit },
         renew && { label: 'Renewable', value: renew, unit: eUnit },
         renewPct && { label: 'Renew. % (S1+2)', value: renewPct, unit: '%' },
         energyIntensity && { label: 'Intensity', value: energyIntensity, unit: `${eUnit}/emp` },
       ].filter(Boolean) },
-
-      // ── Electricity subsection
       ...(hasElec ? [
-        { type: 'subtitle', text: 'Energy Consumption — Electricity' },
+        { type: 'subtitle', text: 'Electricity' },
         { type: 'data-table', columns: 1, rows: rows(
-          ['Renewable electricity',     elecRenew > 0     ? `${elecRenew.toFixed(2)} ${eUnit}`    : ''],
-          ['Non-renewable electricity', elecNonRenew > 0  ? `${elecNonRenew.toFixed(2)} ${eUnit}` : (elecRenew === 0 ? `${elec.toFixed(2)} ${eUnit}` : '')],
+          ['Renewable electricity',     elecRenew > 0    ? `${elecRenew.toFixed(2)} ${eUnit}`    : ''],
+          ['Non-renewable electricity', elecNonRenew > 0 ? `${elecNonRenew.toFixed(2)} ${eUnit}` : (elecRenew === 0 ? `${elec.toFixed(2)} ${eUnit}` : '')],
           ['Total electricity',         `${elec.toFixed(2)} ${eUnit}`],
         )},
       ] : []),
-
-      // ── Fuels & Heating subsection
       ...(hasFuels ? [
-        { type: 'subtitle', text: 'Energy Consumption — Fuels & District Heating' },
+        { type: 'subtitle', text: 'Fuels & District Heating' },
         { type: 'data-table', columns: 1, rows: rows(
-          ['Natural gas',                          data.naturalGasConsumption      ? `${data.naturalGasConsumption} ${data.gasUnit || 'm³'}` : ''],
-          ['Fuel oil / diesel',                    data.fuelOilConsumption         ? `${data.fuelOilConsumption} ${data.fuelOilUnit || 'L'}` : ''],
-          ['District heating/cooling',             data.districtHeatingConsumption ? `${data.districtHeatingConsumption} ${eUnit}` : ''],
-          ['of which renewable district heating',  data.districtHeatingRenewable   ? `${data.districtHeatingRenewable} ${eUnit}` : ''],
-          ['Non-renewable district heating',       (() => { const d = n(data.districtHeatingConsumption), r = n(data.districtHeatingRenewable); return d > 0 && r > 0 ? `${(d - r).toFixed(2)} ${eUnit}` : '' })()],
+          ['Natural gas',                         data.naturalGasConsumption      ? `${data.naturalGasConsumption} ${data.gasUnit || 'm³'}` : ''],
+          ['Fuel oil / diesel',                   data.fuelOilConsumption         ? `${data.fuelOilConsumption} ${data.fuelOilUnit || 'L'}` : ''],
+          ['District heating/cooling',            data.districtHeatingConsumption ? `${data.districtHeatingConsumption} ${eUnit}` : ''],
+          ['of which renewable district heating', data.districtHeatingRenewable   ? `${data.districtHeatingRenewable} ${eUnit}` : ''],
+          ['Non-renewable district heating',      (() => { const d = n(data.districtHeatingConsumption), r = n(data.districtHeatingRenewable); return d > 0 && r > 0 ? `${(d - r).toFixed(2)} ${eUnit}` : '' })()],
         )},
       ] : []),
-
-      // ── Energy management
-      ...( (data.hasEnergyManagementSystem || data.energyReductionTarget) ? [
+      ...((data.hasEnergyManagementSystem || data.energyReductionTarget) ? [
         { type: 'data-table', rows: rows(
           ['Energy Management System', yesNo(data.hasEnergyManagementSystem)],
           ['Energy Reduction Target',  data.energyReductionTarget],
@@ -524,9 +471,130 @@ function buildB3Page(data) {
         { type: 'subtitle', text: 'Energy Narrative' },
         { type: 'text-block', content: strip(data.energyNarrative) },
       ] : []),
+    ],
+  }
+}
 
-      // ── GHG overview KPIs + chart
-      { type: 'subtitle', text: 'GHG Emissions' },
+function buildB3Scope1Page(data) {
+  const s1 = n(data.scope1Emissions)
+  if (!s1 && !data.scope1Stationary && !data.scope1Mobile && !data.scope1Fugitive && !data.scope1Process) return null
+
+  const ghgUnit    = data.ghgUnit || 'tCO2e'
+  const g          = (v) => v ? `${v} ${ghgUnit}` : ''
+  const totalKnown = n(data.scope1Stationary) + n(data.scope1Mobile) + n(data.scope1Fugitive) + n(data.scope1Process)
+  const unaccounted = s1 > 0 && totalKnown > 0 && s1 > totalKnown ? s1 - totalKnown : 0
+
+  return {
+    title: 'B3 — GHG Scope 1', badge: 'B3',
+    blocks: [
+      { type: 'section-band', badge: '', title: 'GHG Emissions — Scope 1 (Direct)' },
+      { type: 'kpi-row', metrics: [
+        { label: 'Total Scope 1', value: s1 || '0', unit: ghgUnit },
+        data.scope1Stationary && { label: 'Stationary', value: n(data.scope1Stationary), unit: ghgUnit },
+        data.scope1Mobile     && { label: 'Mobile',     value: n(data.scope1Mobile),     unit: ghgUnit },
+      ].filter(Boolean) },
+      { type: 'subtitle', text: 'Scope 1 Breakdown' },
+      { type: 'data-table', columns: 1, rows: rows(
+        ['Own facilities — stationary combustion',  g(data.scope1Stationary)],
+        ['Company vehicles — mobile combustion',    g(data.scope1Mobile)],
+        ['Fugitive emissions (refrigerants, leaks)',g(data.scope1Fugitive)],
+        ['Industrial process emissions',            g(data.scope1Process)],
+        ...(unaccounted > 0 ? [['Other / unspecified', `${unaccounted.toFixed(2)} ${ghgUnit}`]] : []),
+        ['Total Scope 1',                           g(data.scope1Emissions)],
+      )},
+    ],
+  }
+}
+
+function buildB3Scope2Page(data) {
+  const s1 = n(data.scope1Emissions)
+  const s2 = n(data.scope2Emissions)
+  if (!s2 && !data.scope2LocationBased && !data.scope2Electricity && !data.scope2Heating) return null
+
+  const ghgUnit    = data.ghgUnit || 'tCO2e'
+  const eUnit      = data.energyUnit || 'MWh'
+  const g          = (v) => v ? `${v} ${ghgUnit}` : ''
+  const elecRenew  = n(data.electricityRenewable)
+  const elec       = n(data.electricityConsumption)
+  const distRenew  = n(data.districtHeatingRenewable)
+  const distTotal  = n(data.districtHeatingConsumption)
+  const hasRenewData = elecRenew > 0 || distRenew > 0
+
+  return {
+    title: 'B3 — GHG Scope 2', badge: 'B3',
+    blocks: [
+      { type: 'section-band', badge: '', title: 'GHG Emissions — Scope 2 (Purchased Energy)' },
+      { type: 'kpi-row', metrics: [
+        { label: 'Scope 2 (market)', value: s2 || '0', unit: ghgUnit },
+        data.scope2LocationBased && { label: 'Scope 2 (location)', value: n(data.scope2LocationBased), unit: ghgUnit },
+        (s1 + s2) > 0 && { label: 'Scope 1 + 2', value: (s1 + s2).toFixed(2), unit: ghgUnit },
+      ].filter(Boolean) },
+      { type: 'subtitle', text: 'Scope 2 Detail' },
+      { type: 'data-table', columns: 1, rows: rows(
+        ['Purchased electricity — market-based',   g(data.scope2Emissions)],
+        ['Purchased electricity — location-based', g(data.scope2LocationBased)],
+        ['District heating / cooling component',   g(data.scope2Heating)],
+        ['Total Scope 1 + 2',                      (s1 + s2) > 0 ? `${(s1 + s2).toFixed(2)} ${ghgUnit}` : ''],
+      )},
+      ...(hasRenewData ? [
+        { type: 'subtitle', text: 'Renewable Energy (reducing Scope 2)' },
+        { type: 'data-table', columns: 1, rows: rows(
+          ['Renewable electricity',        elecRenew > 0              ? `${elecRenew.toFixed(2)} ${eUnit}` : ''],
+          ['Share of total electricity',   elec > 0 && elecRenew > 0  ? `${((elecRenew / elec) * 100).toFixed(1)} %` : ''],
+          ['Renewable district heating',   distRenew > 0              ? `${distRenew.toFixed(2)} ${eUnit}` : ''],
+          ['Share of district heating',    distTotal > 0 && distRenew > 0 ? `${((distRenew / distTotal) * 100).toFixed(1)} %` : ''],
+        )},
+      ] : []),
+    ],
+  }
+}
+
+function buildB3Scope3Page(data) {
+  const s3 = n(data.scope3Emissions)
+  const hasS3Detail = data.scope3BusinessTravel || data.scope3Commuting || data.scope3PurchasedGoods ||
+                      data.scope3Waste || data.scope3UpstreamTransport || data.scope3DownstreamTransport || data.scope3UseOfProducts
+  if (!s3 && !hasS3Detail) return null
+
+  const s1 = n(data.scope1Emissions), s2 = n(data.scope2Emissions)
+  const totalGHG = s1 + s2 + s3
+  const ghgUnit  = data.ghgUnit || 'tCO2e'
+  const g        = (v) => v ? `${v} ${ghgUnit}` : ''
+
+  return {
+    title: 'B3 — GHG Scope 3', badge: 'B3',
+    blocks: [
+      { type: 'section-band', badge: '', title: 'GHG Emissions — Scope 3 (Value Chain)' },
+      { type: 'kpi-row', metrics: [
+        { label: 'Total Scope 3', value: s3 || '0', unit: ghgUnit },
+        totalGHG > 0 && { label: 'Total GHG (1+2+3)', value: totalGHG.toFixed(2), unit: ghgUnit },
+      ].filter(Boolean) },
+      { type: 'subtitle', text: 'Scope 3 Breakdown' },
+      { type: 'data-table', columns: 1, rows: rows(
+        ['Business travel',                        g(data.scope3BusinessTravel)],
+        ['Employee commuting',                     g(data.scope3Commuting)],
+        ['Procurement (goods, materials, services)',g(data.scope3PurchasedGoods)],
+        ['Waste and recycling',                    g(data.scope3Waste)],
+        ['Upstream transport',                     g(data.scope3UpstreamTransport)],
+        ['Downstream transport (to customer)',     g(data.scope3DownstreamTransport)],
+        ['Use of sold products',                   g(data.scope3UseOfProducts)],
+        ['Total Scope 3',                          g(data.scope3Emissions)],
+        ['Total GHG (Scope 1+2+3)',                totalGHG > 0 ? `${totalGHG.toFixed(2)} ${ghgUnit}` : ''],
+      )},
+    ],
+  }
+}
+
+function buildB3GHGSummaryPage(data) {
+  const s1 = n(data.scope1Emissions), s2 = n(data.scope2Emissions), s3 = n(data.scope3Emissions)
+  const totalGHG  = s1 + s2 + s3
+  const emp       = n(data.employeeCount)
+  const ghgUnit   = data.ghgUnit || 'tCO2e'
+  const ghgIntEmp = totalGHG > 0 && emp > 0 ? (totalGHG / emp).toFixed(2) : null
+
+  return {
+    title: 'B3 — GHG Summary', badge: 'B3',
+    blocks: [
+      { type: 'section-band', badge: '', title: 'GHG Emissions — Summary' },
       { type: 'kpi-row', metrics: [
         { label: 'Scope 1', value: s1 || '0', unit: ghgUnit },
         { label: 'Scope 2', value: s2 || '0', unit: ghgUnit },
@@ -534,20 +602,6 @@ function buildB3Page(data) {
         totalGHG > 0 && { label: 'Total GHG', value: totalGHG.toFixed(2), unit: ghgUnit },
       ].filter(Boolean) },
       ...(s1 > 0 || s2 > 0 ? [{ type: 'ghg-scope-chart', scope1: s1, scope2: s2, scope3: s3 > 0 ? s3 : null, unit: ghgUnit }] : []),
-
-      // ── GHG Scope 1 & 2 detail table
-      ...(s1 > 0 || s2 > 0 ? [
-        { type: 'subtitle', text: 'GHG Emissions — Scope 1 & 2' },
-        { type: 'data-table', columns: 1, rows: [...s1Rows, ...s2Rows].filter(r => r.value) },
-      ] : []),
-
-      // ── GHG Scope 3 detail table
-      ...(s3 > 0 || hasS3Detail ? [
-        { type: 'subtitle', text: 'GHG Emissions — Scope 3' },
-        { type: 'data-table', columns: 1, rows: s3Rows.filter(r => r.value) },
-      ] : []),
-
-      // ── Targets & intensity
       { type: 'data-table', rows: rows(
         ['GHG Intensity (per emp)', ghgIntEmp ? `${ghgIntEmp} ${ghgUnit}/emp` : ''],
         ['GHG Base Year',           data.ghgBaseYear],
@@ -562,6 +616,23 @@ function buildB3Page(data) {
       ] : []),
     ],
   }
+}
+
+function buildB3Pages(data) {
+  if (!data.totalEnergyConsumption && !data.renewableEnergyConsumption &&
+      !data.scope1Emissions && !data.scope2Emissions && !data.scope3Emissions &&
+      !data.energyNarrative && !data.ghgNarrative) return []
+
+  const s1 = n(data.scope1Emissions), s2 = n(data.scope2Emissions)
+  const hasGHG = s1 > 0 || s2 > 0 || n(data.scope3Emissions) > 0
+
+  return [
+    buildB3EnergyPage(data),
+    hasGHG ? buildB3Scope1Page(data) : null,
+    hasGHG ? buildB3Scope2Page(data) : null,
+    buildB3Scope3Page(data),
+    hasGHG ? buildB3GHGSummaryPage(data) : null,
+  ].filter(Boolean)
 }
 
 // B4 — Pollution

@@ -105,18 +105,32 @@ export function useCloudSync() {
         .single()
       if (err) throw err
       const { __canvasDraft, ...formData } = data.data || {}
-      const canvasDraft = withCanvas ? (__canvasDraft || null) : null
-      // Write to localStorage so local "Continue editing" works across page reloads
-      if (canvasDraft) {
-        try { localStorage.setItem('vsme_canvas_draft', JSON.stringify(canvasDraft)) } catch {}
+      const { images: _i, ...snap } = formData
+
+      if (__canvasDraft) {
+        const { states = {}, customizedPageIndices = [], settings } = __canvasDraft
+
+        // Write a settings-only draft so theme/font/colors are restored, but with
+        // no page states — non-customised pages will fresh-render from form data.
+        const settingsDraft = { states: {}, customizedPageIndices: [], settings: settings || {}, dataSnapshot: snap }
+        try { localStorage.setItem('vsme_canvas_draft', JSON.stringify(settingsDraft)) } catch {}
+
+        // Write only the manually-customised page states to page overrides so they
+        // load with priority. Non-customised pages have no override → fresh render.
+        if (customizedPageIndices.length > 0) {
+          const customizedStates = {}
+          customizedPageIndices.forEach(idx => { if (states[idx]) customizedStates[idx] = states[idx] })
+          const pageOverrides = { pageCount: 0, states: customizedStates, dataSnapshot: snap }
+          try { localStorage.setItem('vsme_canvas_page_overrides', JSON.stringify(pageOverrides)) } catch {}
+        } else {
+          localStorage.removeItem('vsme_canvas_page_overrides')
+        }
       } else {
         localStorage.removeItem('vsme_canvas_draft')
+        localStorage.removeItem('vsme_canvas_page_overrides')
       }
-      // Clear per-page canvas overrides and locally-cached images so the loaded report's
-      // state is fully authoritative rather than mixed with stale data from this device.
-      localStorage.removeItem('vsme_canvas_page_overrides')
       localStorage.removeItem('vsme_canvas_user_objects')
-      return { formData, canvasDraft }
+      return { formData, canvasDraft: null }
     } catch (e) {
       setError(e.message)
       return null
