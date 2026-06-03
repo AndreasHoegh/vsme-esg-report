@@ -2079,6 +2079,19 @@ async function exportAllPagesToPDF(
   );
 }
 
+// ─── Snapshot stale detection ─────────────────────────────────────────────────
+// Compares only the keys PRESENT in the snapshot against the current form data.
+// Using per-field JSON.stringify avoids two failure modes:
+//  (a) Supabase jsonb returns keys in a different order — whole-object stringify differs.
+//  (b) New initialData fields added in app updates appear in currentForm as empty strings
+//      but are absent from old snapshots — whole comparison would always report stale.
+function snapshotMatchesForm(snapshot, currentForm) {
+  if (!snapshot || !currentForm) return false
+  return !Object.keys(snapshot).some(
+    k => JSON.stringify(snapshot[k]) !== JSON.stringify(currentForm[k])
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function CanvasEditor({
@@ -2110,9 +2123,7 @@ export default function CanvasEditor({
       const stored = JSON.parse(localStorage.getItem(PAGE_OVERRIDES_KEY) || "null");
       if (stored) {
         const { images: _i, ...currentForm } = data;
-        const overrideStale =
-          !stored.dataSnapshot ||
-          JSON.stringify(stored.dataSnapshot) !== JSON.stringify(currentForm);
+        const overrideStale = !snapshotMatchesForm(stored.dataSnapshot, currentForm);
         if (overrideStale) {
           localStorage.removeItem(PAGE_OVERRIDES_KEY);
           pageOverridesRef.current = { pageCount: 0, states: {} };
@@ -2353,11 +2364,7 @@ export default function CanvasEditor({
     // against the current form data — if the snapshot no longer matches, pages regenerate
     // from fresh data instead of showing stale canvas content.
     const { images: _imgIgnore, ...currentForm } = data;
-    const isStale = (draft) => {
-      if (!draft) return true;
-      const snap = draft.dataSnapshot;
-      return !snap || JSON.stringify(snap) !== JSON.stringify(currentForm);
-    };
+    const isStale = (draft) => !snapshotMatchesForm(draft?.dataSnapshot, currentForm);
 
     let localDraft = null;
     if (pendingCanvasDraft && !isStale(pendingCanvasDraft)) {
