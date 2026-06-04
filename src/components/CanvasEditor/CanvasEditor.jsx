@@ -98,12 +98,54 @@ function _stripImgSrc(json) {
   };
 }
 
+// Canvas uses kebab phIds (e.g. "cover-photo") while the form stores images under
+// camelCase keys (e.g. "coverPhoto"). Normalise so both lookups resolve correctly.
+function phIdToKey(phId) {
+  return phId.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+}
+function imgSrc(images, phId) {
+  return images?.[phId] || images?.[phIdToKey(phId)];
+}
+
 // Re-populate stripped phId images from the live form images map, then call onDone.
+// Also replaces photo-placeholder rects with the actual image when one is now available
+// (handles the case where a page override was saved before a photo was uploaded).
 function _restoreImgSrc(canvas, images, theme, onDone) {
+  recolorCanvas(canvas, theme);
+
+  // Replace photo-placeholder rects whose phId now has a real image
+  canvas.getObjects()
+    .filter(o => o.data?.type === 'photo-placeholder' && imgSrc(images, o.data?.phId))
+    .forEach(ph => {
+      const phId = ph.data.phId;
+      const src  = imgSrc(images, phId);
+      // Remove placeholder + any associated label objects for this phId
+      canvas.getObjects()
+        .filter(o => o.data?.phId === phId)
+        .forEach(o => canvas.remove(o));
+      // Re-add the image (cover photo fills the right half of the page)
+      const rightX = Math.round(CW * 0.5);
+      const rightW = CW - rightX;
+      const img = new Image();
+      img.onload = () => {
+        const fimg = new fabric.Image(img);
+        const scale = Math.max(rightW / fimg.width, CH / fimg.height);
+        fimg.set({
+          left: rightX + (rightW - fimg.width * scale) / 2,
+          top:  (CH - fimg.height * scale) / 2,
+          scaleX: scale, scaleY: scale,
+          data: { type: 'image-block', phId },
+        });
+        sel(fimg);
+        canvas.add(fimg);
+        canvas.renderAll();
+      };
+      img.src = src;
+    });
+
   const imgObjs = canvas
     .getObjects()
     .filter((o) => o.type === "image" && !o.getSrc?.() && o.data?.phId);
-  recolorCanvas(canvas, theme);
   if (!imgObjs.length) {
     canvas.renderAll();
     onDone();
@@ -117,7 +159,7 @@ function _restoreImgSrc(canvas, images, theme, onDone) {
     }
   };
   imgObjs.forEach((imgObj) => {
-    const src = images?.[imgObj.data.phId];
+    const src = imgSrc(images, imgObj.data.phId);
     if (!src) {
       checkDone();
       return;
@@ -2085,8 +2127,15 @@ async function exportAllPagesToPDF(
 //  (a) Supabase jsonb returns keys in a different order — whole-object stringify differs.
 //  (b) New initialData fields added in app updates appear in currentForm as empty strings
 //      but are absent from old snapshots — whole comparison would always report stale.
+function imageFingerprint(images) {
+  return Object.keys(images || {}).filter(k => images[k]).sort().join(',')
+}
+
 function snapshotMatchesForm(snapshot, currentForm) {
   if (!snapshot || !currentForm) return false
+  // Always compare _imageKeys explicitly — old snapshots don't have this field,
+  // so iterating snapshot keys alone would never detect image changes.
+  if ((snapshot._imageKeys ?? '') !== (currentForm._imageKeys ?? '')) return false
   return !Object.keys(snapshot).some(
     k => JSON.stringify(snapshot[k]) !== JSON.stringify(currentForm[k])
   )
@@ -2159,11 +2208,9 @@ export default function CanvasEditor({
         localStorage.getItem(CANVAS_STORAGE_KEY) || "null",
       );
       if (!draft) return null;
-      const snap = draft.dataSnapshot;
-      const { images: _i, ...currentForm } = data;
-      const stale =
-        !snap || JSON.stringify(snap) !== JSON.stringify(currentForm);
-      if (stale) {
+      const { images, ...formWithoutImages } = data;
+      const currentForm = { ...formWithoutImages, _imageKeys: imageFingerprint(images) };
+      if (!snapshotMatchesForm(draft.dataSnapshot, currentForm)) {
         localStorage.removeItem(CANVAS_STORAGE_KEY);
         return null;
       }
@@ -2355,7 +2402,8 @@ export default function CanvasEditor({
     // Resolve which draft to use. Both the cloud draft and the local draft are validated
     // against the current form data — if the snapshot no longer matches, pages regenerate
     // from fresh data instead of showing stale canvas content.
-    const { images: _imgIgnore, ...currentForm } = data;
+    const { images, ...formWithoutImages } = data;
+    const currentForm = { ...formWithoutImages, _imageKeys: imageFingerprint(images) };
     const isStale = (draft) => !snapshotMatchesForm(draft?.dataSnapshot, currentForm);
 
     let localDraft = null;
@@ -3597,8 +3645,8 @@ export default function CanvasEditor({
         deletedPages: [...deletedPageIndicesRef.current],
       },
       dataSnapshot: (() => {
-        const { images: _i, ...f } = data;
-        return f;
+        const { images, ...f } = data;
+        return { ...f, _imageKeys: imageFingerprint(images) };
       })(),
     };
     try {
