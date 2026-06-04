@@ -826,36 +826,26 @@ async function applyBlock(canvas, block, config, y) {
       makeSubtitle(ML, y, block.text, config).forEach((o) => canvas.add(o));
       return y + 30;
 
-    case "text-block": {
-      const content = (block.content || "").trim();
-      if (!content) return y;
-      const t = tb(content, {
-        left: ML,
-        top: y + 2,
-        width: CONTENT_W,
-        fontSize: 9.5,
-        fill: "#444444",
-        lineHeight: 1.7,
-      });
-      const h = t.getScaledHeight();
-      canvas.add(t);
-      return y + h + 14;
-    }
-
+    case "text-block":
     case "text-block-2col": {
       const content = (block.content || "").trim();
       if (!content) return y;
-      // Split at the first double-newline (paragraph break), or at the midpoint
       const colW = Math.floor((CONTENT_W - 20) / 2);
       const paraBreak = content.indexOf('\n\n');
-      const mid = paraBreak > 0 ? paraBreak : Math.floor(content.length / 2);
-      const left  = content.slice(0, mid).trim();
-      const right = content.slice(mid).trim();
-      const tL = tb(left, { left: ML, top: y + 2, width: colW, fontSize: 9.5, fill: "#444444", lineHeight: 1.7 });
-      const tR = tb(right, { left: ML + colW + 20, top: y + 2, width: colW, fontSize: 9.5, fill: "#444444", lineHeight: 1.7 });
-      canvas.add(tL);
-      canvas.add(tR);
-      return y + Math.max(tL.getScaledHeight(), tR.getScaledHeight()) + 14;
+      const useTwoCols = block.type === "text-block-2col" || paraBreak > 0 || content.length > 250;
+      if (useTwoCols) {
+        const mid = paraBreak > 0 ? paraBreak : Math.floor(content.length / 2);
+        const left  = content.slice(0, mid).trim();
+        const right = content.slice(mid).trim();
+        const tL = tb(left,  { left: ML,               top: y + 2, width: colW, fontSize: 9.5, fill: "#444444", lineHeight: 1.7 });
+        const tR = tb(right, { left: ML + colW + 20,   top: y + 2, width: colW, fontSize: 9.5, fill: "#444444", lineHeight: 1.7 });
+        canvas.add(tL);
+        canvas.add(tR);
+        return y + Math.max(tL.getScaledHeight(), tR.getScaledHeight()) + 14;
+      }
+      const t = tb(content, { left: ML, top: y + 2, width: CONTENT_W, fontSize: 9.5, fill: "#444444", lineHeight: 1.7 });
+      canvas.add(t);
+      return y + t.getScaledHeight() + 14;
     }
 
     case "photo-placeholder": {
