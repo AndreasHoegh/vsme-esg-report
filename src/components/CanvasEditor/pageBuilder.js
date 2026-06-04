@@ -427,7 +427,7 @@ function buildB3OverviewPage(data) {
       { type: 'section-band', badge: 'B3', title: 'Energy & GHG Emissions' },
       ...(data.energyNarrative ? [
         { type: 'subtitle', text: 'Energy & GHG Narrative' },
-        { type: 'text-block', content: strip(data.energyNarrative) },
+        { type: 'text-block-2col', content: strip(data.energyNarrative) },
       ] : []),
     ],
   }

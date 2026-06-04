@@ -842,6 +842,22 @@ async function applyBlock(canvas, block, config, y) {
       return y + h + 14;
     }
 
+    case "text-block-2col": {
+      const content = (block.content || "").trim();
+      if (!content) return y;
+      // Split at the first double-newline (paragraph break), or at the midpoint
+      const colW = Math.floor((CONTENT_W - 20) / 2);
+      const paraBreak = content.indexOf('\n\n');
+      const mid = paraBreak > 0 ? paraBreak : Math.floor(content.length / 2);
+      const left  = content.slice(0, mid).trim();
+      const right = content.slice(mid).trim();
+      const tL = tb(left, { left: ML, top: y + 2, width: colW, fontSize: 9.5, fill: "#444444", lineHeight: 1.7 });
+      const tR = tb(right, { left: ML + colW + 20, top: y + 2, width: colW, fontSize: 9.5, fill: "#444444", lineHeight: 1.7 });
+      canvas.add(tL);
+      canvas.add(tR);
+      return y + Math.max(tL.getScaledHeight(), tR.getScaledHeight()) + 14;
+    }
+
     case "photo-placeholder": {
       const phW = block.width || CONTENT_W;
       const phH = block.height || 160;
