@@ -10,6 +10,7 @@ import jsPDF from "jspdf";
 import { buildAllPages } from "./pageBuilder";
 import { SDG_ICON_DATA, SDG_COLORS } from "../../data/sdgIcons";
 import { useForm } from "../../context/FormContext";
+import { fmtNum } from "../../utils/format";
 import "./CanvasEditor.css";
 
 const CW = 842;
@@ -114,15 +115,20 @@ function _restoreImgSrc(canvas, images, theme, onDone) {
   recolorCanvas(canvas, theme);
 
   // Replace photo-placeholder rects whose phId now has a real image
-  canvas.getObjects()
-    .filter(o => o.data?.type === 'photo-placeholder' && imgSrc(images, o.data?.phId))
-    .forEach(ph => {
+  canvas
+    .getObjects()
+    .filter(
+      (o) =>
+        o.data?.type === "photo-placeholder" && imgSrc(images, o.data?.phId),
+    )
+    .forEach((ph) => {
       const phId = ph.data.phId;
-      const src  = imgSrc(images, phId);
+      const src = imgSrc(images, phId);
       // Remove placeholder + any associated label objects for this phId
-      canvas.getObjects()
-        .filter(o => o.data?.phId === phId)
-        .forEach(o => canvas.remove(o));
+      canvas
+        .getObjects()
+        .filter((o) => o.data?.phId === phId)
+        .forEach((o) => canvas.remove(o));
       // Re-add the image (cover photo fills the right half of the page)
       const rightX = Math.round(CW * 0.5);
       const rightW = CW - rightX;
@@ -132,9 +138,10 @@ function _restoreImgSrc(canvas, images, theme, onDone) {
         const scale = Math.max(rightW / fimg.width, CH / fimg.height);
         fimg.set({
           left: rightX + (rightW - fimg.width * scale) / 2,
-          top:  (CH - fimg.height * scale) / 2,
-          scaleX: scale, scaleY: scale,
-          data: { type: 'image-block', phId },
+          top: (CH - fimg.height * scale) / 2,
+          scaleX: scale,
+          scaleY: scale,
+          data: { type: "image-block", phId },
         });
         sel(fimg);
         canvas.add(fimg);
@@ -267,6 +274,39 @@ function tb(text, opts = {}) {
   );
 }
 
+const TEXT_TYPES = ["textbox", "i-text", "text"];
+const isTextObj = (o) => o && TEXT_TYPES.includes(o.type);
+
+// Read the effective font styles of a text object. When the object is being
+// edited with an active selection, the style at the caret/selection start wins
+// (so the toolbar reflects what's under the cursor); otherwise the object-level
+// properties are used.
+function readTextStyle(obj) {
+  let { fontFamily, fontSize, fontWeight, fontStyle } = obj;
+  const start = obj.selectionStart;
+  if (
+    obj.isEditing &&
+    start != null &&
+    typeof obj.getSelectionStyles === "function"
+  ) {
+    try {
+      const s = obj.getSelectionStyles(start, start + 1)?.[0];
+      if (s) {
+        if (s.fontFamily) fontFamily = s.fontFamily;
+        if (s.fontSize) fontSize = s.fontSize;
+        if (s.fontWeight) fontWeight = s.fontWeight;
+        if (s.fontStyle) fontStyle = s.fontStyle;
+      }
+    } catch {}
+  }
+  return {
+    fontFamily: fontFamily || "Arial",
+    fontSize: fontSize || 11,
+    bold: fontWeight === "bold" || Number(fontWeight) >= 700,
+    italic: fontStyle === "italic",
+  };
+}
+
 // ─── Section band ────────────────────────────────────────────────────────────
 
 function makeSectionBand(badge, title, config, y) {
@@ -346,7 +386,12 @@ function makeSectionBand(badge, title, config, y) {
 
 function makeKpiBox(x, y, w, h, metric, config) {
   const { theme, fontPair } = config;
-  const valStr = String(metric.value ?? "—");
+  // Numeric values get European formatting (1.234,5); pre-formatted strings,
+  // years and currency codes are passed through untouched.
+  const valStr =
+    typeof metric.value === "number"
+      ? fmtNum(metric.value)
+      : String(metric.value ?? "—");
   const vfs = Math.min(22, Math.max(11, Math.round(24 - valStr.length * 1.4)));
   return [
     sel(
@@ -473,7 +518,9 @@ function makeFooter(pageNum, company, config) {
 async function renderPage(canvas, pageSpec, config, pageNum, companyName) {
   canvas.clear();
   canvas.backgroundColor = "#ffffff";
-  let y = pageSpec.blocks[0]?.type === "section-band" ? 0 : 40;
+  // Top margin: section pages start a little below the page edge so content
+  // doesn't crowd the top; continuation pages get a slightly larger inset.
+  let y = pageSpec.blocks[0]?.type === "section-band" ? 24 : 48;
   for (const block of pageSpec.blocks)
     y = await applyBlock(canvas, block, config, y);
   if (pageSpec.badge || pageSpec.showFooter)
@@ -484,6 +531,42 @@ async function renderPage(canvas, pageSpec, config, pageNum, companyName) {
 async function applyBlock(canvas, block, config, y) {
   const { theme } = config;
   switch (block.type) {
+    case "bullet-list": {
+      let currentY = y;
+      const fontSize = 9.5;
+      const lineHeight = 1.7;
+      const lineH = fontSize * lineHeight; // Den faktiske højde pr. linje
+
+      block.items.forEach((item) => {
+        // 1. Beregn tekst-højden først
+        const t = tb(item, {
+          left: ML + 20, // Øget indrykning for bedre plads
+          top: currentY,
+          width: CONTENT_W - 20,
+          fontSize: fontSize,
+          fill: "#444444",
+          lineHeight: lineHeight,
+        });
+
+        // 2. Centrer bullet pointet vertikalt i forhold til tekstens første linje
+        // Vi tager fontstørrelsen og deler med 2 for at ramme midten af linjen
+        const bulletTop = currentY + fontSize / 2 - 1.5;
+
+        const bullet = new fabric.Circle({
+          radius: 2.5,
+          fill: "#444444",
+          left: ML + 5, // Juster denne for at rykke punktet tættere/længere fra tekst
+          top: bulletTop,
+        });
+
+        canvas.add(bullet);
+        canvas.add(t);
+
+        // 3. Opdater currentY baseret på tekstens faktiske højde
+        currentY += t.getScaledHeight() + 5; // +5 for lidt luft mellem punkterne
+      });
+      return currentY;
+    }
     case "section-band":
       makeSectionBand(block.badge, block.title, config, y).forEach((o) =>
         canvas.add(o),
@@ -648,7 +731,7 @@ async function applyBlock(canvas, block, config, y) {
         );
         // Value label
         canvas.add(
-          tb(`${Number(value).toFixed(2)} ${unit}`, {
+          tb(`${fmtNum(value)} ${unit}`, {
             left: ML + labelW + barAreaW + 8,
             top: y + 11,
             width: valW,
@@ -831,19 +914,52 @@ async function applyBlock(canvas, block, config, y) {
       const content = (block.content || "").trim();
       if (!content) return y;
       const colW = Math.floor((CONTENT_W - 20) / 2);
-      const paraBreak = content.indexOf('\n\n');
-      const useTwoCols = block.type === "text-block-2col" || paraBreak > 0 || content.length > 250;
+      const paraBreak = content.indexOf("\n\n");
+      const useTwoCols =
+        block.type === "text-block-2col" ||
+        paraBreak > 0 ||
+        content.length > 600;
       if (useTwoCols) {
-        const mid = paraBreak > 0 ? paraBreak : Math.floor(content.length / 2);
-        const left  = content.slice(0, mid).trim();
+        // Udskift din gamle 'mid' linje med dette:
+        let mid;
+        if (paraBreak > 0) {
+          mid = paraBreak;
+        } else {
+          const midPoint = Math.floor(content.length / 2);
+          const spaceIndex = content.indexOf(" ", midPoint);
+          // Hvis der findes et mellemrum efter midten, brug det – ellers brug midtpunktet
+          mid = spaceIndex > 0 ? spaceIndex : midPoint;
+        }
+        const left = content.slice(0, mid).trim();
         const right = content.slice(mid).trim();
-        const tL = tb(left,  { left: ML,               top: y + 2, width: colW, fontSize: 9.5, fill: "#444444", lineHeight: 1.7 });
-        const tR = tb(right, { left: ML + colW + 20,   top: y + 2, width: colW, fontSize: 9.5, fill: "#444444", lineHeight: 1.7 });
+        const tL = tb(left, {
+          left: ML,
+          top: y + 2,
+          width: colW,
+          fontSize: 9.5,
+          fill: "#444444",
+          lineHeight: 1.7,
+        });
+        const tR = tb(right, {
+          left: ML + colW + 20,
+          top: y + 2,
+          width: colW,
+          fontSize: 9.5,
+          fill: "#444444",
+          lineHeight: 1.7,
+        });
         canvas.add(tL);
         canvas.add(tR);
         return y + Math.max(tL.getScaledHeight(), tR.getScaledHeight()) + 14;
       }
-      const t = tb(content, { left: ML, top: y + 2, width: CONTENT_W, fontSize: 9.5, fill: "#444444", lineHeight: 1.7 });
+      const t = tb(content, {
+        left: ML,
+        top: y + 2,
+        width: CONTENT_W,
+        fontSize: 9.5,
+        fill: "#444444",
+        lineHeight: 1.7,
+      });
       canvas.add(t);
       return y + t.getScaledHeight() + 14;
     }
@@ -1401,20 +1517,6 @@ async function applyBlock(canvas, block, config, y) {
             );
           }
 
-          // "Inspired by N. Name" citation in goal color
-          canvas.add(
-            tb(`Inspired by ${goal.num}. ${goal.name}`, {
-              left: textX,
-              top: y + rowH - 16,
-              width: textW,
-              fontSize: 7.5,
-              fill: goal.color,
-              fontFamily: fontPair.body,
-              fontStyle: "italic",
-              editable: false,
-            }),
-          );
-
           // Bottom separator
           canvas.add(
             sel(
@@ -1625,15 +1727,24 @@ function renderCoverESG365(canvas, data, config) {
   // Accent bar
   canvas.add(
     sel(
+      // ... eksisterende kode ...
       new fabric.Rect({
         left: ML,
-        top: 182,
-        width: 44,
-        height: 3,
-        fill: theme.primary,
-        rx: 1.5,
-        strokeWidth: 0,
-        data: { tr: "p" },
+        top: 20,
+        width: 90,
+        height: 46,
+        fill: "#f5f5f5",
+        stroke: "#dddddd",
+        strokeWidth: 1,
+        rx: 3,
+        ry: 3,
+        strokeDashArray: [4, 3],
+        // ÆNDR DENNE LINJE:
+        data: {
+          tr: "l",
+          type: "photo-placeholder", // Tilføj denne type
+          phId: "logo", // Og giv den en unik ID
+        },
       }),
     ),
   );
@@ -1691,14 +1802,19 @@ function renderCoverESG365(canvas, data, config) {
     ),
   );
   canvas.add(
-    tb("Prepared in accordance with VSME Basic Module (B1–B11)", {
-      left: ML,
-      top: CH - 56,
-      width: leftW - 56,
-      fontSize: 7.5,
-      fill: "#aaaaaa",
-      fontFamily: fontPair.body,
-    }),
+    tb(
+      data?.reportingModule === "comprehensive"
+        ? "Prepared in accordance with VSME Basic + Comprehensive Module (B1–B11, C1–C9)"
+        : "Prepared in accordance with VSME Basic Module (B1–B11)",
+      {
+        left: ML,
+        top: CH - 56,
+        width: leftW - 56,
+        fontSize: 7.5,
+        fill: "#aaaaaa",
+        fontFamily: fontPair.body,
+      },
+    ),
   );
 
   // Contact info at bottom-left
@@ -1720,7 +1836,8 @@ function renderCoverESG365(canvas, data, config) {
   }
 
   // Right side — full-bleed cover photo (check phId key first, then form-upload key)
-  const coverPhotoSrc = data?.images?.['cover-photo'] || data?.images?.coverPhoto;
+  const coverPhotoSrc =
+    data?.images?.["cover-photo"] || data?.images?.coverPhoto;
   if (coverPhotoSrc) {
     const coverImg = new Image();
     coverImg.onload = () => {
@@ -2134,17 +2251,21 @@ async function exportAllPagesToPDF(
 //  (b) New initialData fields added in app updates appear in currentForm as empty strings
 //      but are absent from old snapshots — whole comparison would always report stale.
 function imageFingerprint(images) {
-  return Object.keys(images || {}).filter(k => images[k]).sort().join(',')
+  return Object.keys(images || {})
+    .filter((k) => images[k])
+    .sort()
+    .join(",");
 }
 
 function snapshotMatchesForm(snapshot, currentForm) {
-  if (!snapshot || !currentForm) return false
+  if (!snapshot || !currentForm) return false;
   // Always compare _imageKeys explicitly — old snapshots don't have this field,
   // so iterating snapshot keys alone would never detect image changes.
-  if ((snapshot._imageKeys ?? '') !== (currentForm._imageKeys ?? '')) return false
+  if ((snapshot._imageKeys ?? "") !== (currentForm._imageKeys ?? ""))
+    return false;
   return !Object.keys(snapshot).some(
-    k => JSON.stringify(snapshot[k]) !== JSON.stringify(currentForm[k])
-  )
+    (k) => JSON.stringify(snapshot[k]) !== JSON.stringify(currentForm[k]),
+  );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -2175,7 +2296,9 @@ export default function CanvasEditor({
   const pageOverridesRef = useRef(null);
   if (pageOverridesRef.current === null) {
     try {
-      const stored = JSON.parse(localStorage.getItem(PAGE_OVERRIDES_KEY) || "null");
+      const stored = JSON.parse(
+        localStorage.getItem(PAGE_OVERRIDES_KEY) || "null",
+      );
       // Customised pages are user-owned layouts — they persist regardless of form data
       // changes. The user explicitly resets a page via "Reset page". The only automatic
       // clearing happens in loadReport (cross-device cloud load).
@@ -2215,7 +2338,10 @@ export default function CanvasEditor({
       );
       if (!draft) return null;
       const { images, ...formWithoutImages } = data;
-      const currentForm = { ...formWithoutImages, _imageKeys: imageFingerprint(images) };
+      const currentForm = {
+        ...formWithoutImages,
+        _imageKeys: imageFingerprint(images),
+      };
       if (!snapshotMatchesForm(draft.dataSnapshot, currentForm)) {
         localStorage.removeItem(CANVAS_STORAGE_KEY);
         return null;
@@ -2244,6 +2370,11 @@ export default function CanvasEditor({
   const [selType, setSelType] = useState(null); // 'text'|'image'|'rect'|'circle'|'other'|null
   const [selFont, setSelFont] = useState("Arial");
   const [selFontSize, setSelFontSize] = useState(11);
+  const [selBold, setSelBold] = useState(false);
+  const [selItalic, setSelItalic] = useState(false);
+  // Remembers the last text selection range so font/size dropdowns (which blur
+  // the editing text box on click) can still target the highlighted text.
+  const textSelRef = useRef(null);
   const [selOpacity, setSelOpacity] = useState(100);
   const [selRx, setSelRx] = useState(0);
   const [bgTolerance, setBgTolerance] = useState(25);
@@ -2375,8 +2506,11 @@ export default function CanvasEditor({
     const t = obj.type;
     if (t === "textbox" || t === "text" || t === "i-text") {
       setSelType("text");
-      setSelFont(obj.fontFamily || "Arial");
-      setSelFontSize(obj.fontSize || 11);
+      const st = readTextStyle(obj);
+      setSelFont(st.fontFamily);
+      setSelFontSize(Math.round(st.fontSize));
+      setSelBold(st.bold);
+      setSelItalic(st.italic);
     } else if (t === "image") {
       setSelType("image");
       setSelOpacity(Math.round((obj.opacity ?? 1) * 100));
@@ -2409,8 +2543,12 @@ export default function CanvasEditor({
     // against the current form data — if the snapshot no longer matches, pages regenerate
     // from fresh data instead of showing stale canvas content.
     const { images, ...formWithoutImages } = data;
-    const currentForm = { ...formWithoutImages, _imageKeys: imageFingerprint(images) };
-    const isStale = (draft) => !snapshotMatchesForm(draft?.dataSnapshot, currentForm);
+    const currentForm = {
+      ...formWithoutImages,
+      _imageKeys: imageFingerprint(images),
+    };
+    const isStale = (draft) =>
+      !snapshotMatchesForm(draft?.dataSnapshot, currentForm);
 
     let localDraft = null;
     if (pendingCanvasDraft && !isStale(pendingCanvasDraft)) {
@@ -2486,6 +2624,7 @@ export default function CanvasEditor({
       canvas.on("selection:created", (e) => {
         if (activeIdxRef.current === i) {
           setHasSelection(true);
+          textSelRef.current = null;
           updateSelColorRef.current?.(e.selected?.[0]);
         }
       });
@@ -2501,6 +2640,7 @@ export default function CanvasEditor({
         if (activeIdxRef.current === i) {
           setHasSelection(false);
           setSelType(null);
+          textSelRef.current = null;
         }
       });
       canvas.on("object:moving", (e) => {
@@ -2605,6 +2745,21 @@ export default function CanvasEditor({
         }
       });
       canvas.on("text:changed", () => pushHistoryRef.current(i, canvas));
+      // Keep the text toolbar (font / size / bold / italic) in sync with the
+      // caret position and highlighted selection while editing a text box.
+      const syncTextToolbar = (e) => {
+        const obj = e?.target;
+        if (activeIdxRef.current !== i || !isTextObj(obj)) return;
+        // Remember the live selection range so toolbar controls that steal focus
+        // can still apply to it.
+        textSelRef.current =
+          obj.selectionStart !== obj.selectionEnd
+            ? { obj, start: obj.selectionStart, end: obj.selectionEnd }
+            : null;
+        updateSelColorRef.current?.(obj);
+      };
+      canvas.on("text:selection:changed", syncTextToolbar);
+      canvas.on("text:editing:entered", syncTextToolbar);
       canvas.on("mouse:dblclick", (e) => {
         const obj = e.target;
         if (
@@ -2646,7 +2801,10 @@ export default function CanvasEditor({
       } else if (savedState) {
         canvas.loadFromJSON(savedState, () => {
           _restoreImgSrc(canvas, data.images, configRef.current.theme, () => {
-            historyRef.current[i] = { stack: [canvas.toJSON(["data"])], idx: 0 };
+            historyRef.current[i] = {
+              stack: [canvas.toJSON(["data"])],
+              idx: 0,
+            };
           });
         });
       } else {
@@ -2660,7 +2818,12 @@ export default function CanvasEditor({
           // Exclude images that the page builder already rendered from data.images
           // (identified by phId) to avoid duplicates on the canvas.
           const savedUserObjs = (userObjectsRef.current[i] || []).filter(
-            (o) => !(o.type === "image" && o.data?.phId && data.images?.[o.data.phId]),
+            (o) =>
+              !(
+                o.type === "image" &&
+                o.data?.phId &&
+                data.images?.[o.data.phId]
+              ),
           );
           const finish = () => {
             if (!historyRef.current[i])
@@ -2713,7 +2876,8 @@ export default function CanvasEditor({
       if (!canvas || !pages[i] || deletedPageIndicesRef.current.has(i)) return;
       if (pageOverridesRef.current.states[i]) return; // user customized — don't overwrite
       const savedUserObjs = (userObjectsRef.current[i] || []).filter(
-        (o) => !(o.type === "image" && o.data?.phId && data.images?.[o.data.phId]),
+        (o) =>
+          !(o.type === "image" && o.data?.phId && data.images?.[o.data.phId]),
       );
       renderPage(
         canvas,
@@ -3109,28 +3273,78 @@ export default function CanvasEditor({
     setSelectionColor(color);
     if (pushHist) pushHistoryRef.current(idx, canvas);
   }, []);
-  const applyFontFamily = useCallback((family) => {
+  // Apply text styles either to the highlighted selection (when editing a text
+  // box with a non-empty selection) or to the whole object otherwise. When
+  // applied to the whole object, any per-character overrides for those same
+  // properties are cleared so the change is actually visible.
+  const applyTextStyle = useCallback((styleObj) => {
     const idx = activeIdxRef.current,
       canvas = fabricInstances.current[idx];
     if (!canvas) return;
-    canvas.getActiveObjects().forEach((obj) => {
-      if ("fontFamily" in obj) obj.set("fontFamily", family);
+    const objs = canvas.getActiveObjects().filter(isTextObj);
+    if (!objs.length) return;
+    objs.forEach((obj) => {
+      // Use a range only when actively editing with a live highlight, or when a
+      // toolbar control blurred the text box but we remembered the range (e.g.
+      // opening the font dropdown). A non-editing selection targets the whole box.
+      let start = null,
+        end = null;
+      if (obj.isEditing && obj.selectionStart !== obj.selectionEnd) {
+        start = obj.selectionStart;
+        end = obj.selectionEnd;
+      } else if (
+        textSelRef.current?.obj === obj &&
+        textSelRef.current.start !== textSelRef.current.end
+      ) {
+        start = textSelRef.current.start;
+        end = textSelRef.current.end;
+      }
+      if (start != null && end != null && start !== end) {
+        obj.setSelectionStyles(styleObj, start, end);
+      } else {
+        obj.set(styleObj);
+        const len = (obj.text || "").length;
+        if (len && typeof obj.setSelectionStyles === "function") {
+          try {
+            obj.setSelectionStyles(styleObj, 0, len);
+          } catch {}
+        }
+      }
+      obj.dirty = true;
     });
-    canvas.renderAll();
-    setSelFont(family);
+    canvas.requestRenderAll();
+    const primary = canvas.getActiveObject();
+    if (isTextObj(primary)) {
+      const st = readTextStyle(primary);
+      setSelFont(st.fontFamily);
+      setSelFontSize(Math.round(st.fontSize));
+      setSelBold(st.bold);
+      setSelItalic(st.italic);
+    }
     pushHistoryRef.current(idx, canvas);
   }, []);
-  const applyFontSize = useCallback((size) => {
-    const idx = activeIdxRef.current,
-      canvas = fabricInstances.current[idx];
-    if (!canvas) return;
-    canvas.getActiveObjects().forEach((obj) => {
-      if ("fontSize" in obj) obj.set("fontSize", Number(size));
+  const applyFontFamily = useCallback(
+    (family) => applyTextStyle({ fontFamily: family }),
+    [applyTextStyle],
+  );
+  const applyFontSize = useCallback(
+    (size) => applyTextStyle({ fontSize: Number(size) }),
+    [applyTextStyle],
+  );
+  const applyBold = useCallback(() => {
+    const canvas = fabricInstances.current[activeIdxRef.current];
+    const obj = canvas?.getActiveObject();
+    if (!isTextObj(obj)) return;
+    applyTextStyle({ fontWeight: readTextStyle(obj).bold ? "normal" : "bold" });
+  }, [applyTextStyle]);
+  const applyItalic = useCallback(() => {
+    const canvas = fabricInstances.current[activeIdxRef.current];
+    const obj = canvas?.getActiveObject();
+    if (!isTextObj(obj)) return;
+    applyTextStyle({
+      fontStyle: readTextStyle(obj).italic ? "normal" : "italic",
     });
-    canvas.renderAll();
-    setSelFontSize(size);
-    pushHistoryRef.current(idx, canvas);
-  }, []);
+  }, [applyTextStyle]);
   const applyOpacity = useCallback((pct, pushHist = false) => {
     const idx = activeIdxRef.current,
       canvas = fabricInstances.current[idx];
@@ -3592,7 +3806,8 @@ export default function CanvasEditor({
       return n;
     });
     const savedUserObjs = (userObjectsRef.current[i] || []).filter(
-      (o) => !(o.type === "image" && o.data?.phId && data.images?.[o.data.phId]),
+      (o) =>
+        !(o.type === "image" && o.data?.phId && data.images?.[o.data.phId]),
     );
     renderPage(canvas, page, configRef.current, i + 1, data.companyName).then(
       () => {
@@ -4013,6 +4228,24 @@ export default function CanvasEditor({
                     </option>
                   ))}
                 </select>
+                <button
+                  className={`ce-props-btn ce-props-btn--toggle${selBold ? " ce-props-btn--active" : ""}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={applyBold}
+                  title="Bold (applies to selected text)"
+                  style={{ fontWeight: "bold" }}
+                >
+                  B
+                </button>
+                <button
+                  className={`ce-props-btn ce-props-btn--toggle${selItalic ? " ce-props-btn--active" : ""}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={applyItalic}
+                  title="Italic (applies to selected text)"
+                  style={{ fontStyle: "italic", fontFamily: "Georgia, serif" }}
+                >
+                  I
+                </button>
               </>
             )}
             {selType === "rect" && (

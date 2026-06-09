@@ -296,6 +296,21 @@
 .ce-props-btn:hover { background: #3d5068; border-color: #64748b; }
 .ce-props-btn:active { background: #1e3a5f; }
 
+/* Bold / Italic toggle buttons in the text properties bar */
+.ce-props-btn--toggle {
+  width: 28px;
+  padding: 3px 0;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1;
+}
+.ce-props-btn--active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+.ce-props-btn--active:hover { background: #1d4ed8; border-color: #1d4ed8; }
+
 .ce-divider-v {
   width: 1px;
   height: 22px;

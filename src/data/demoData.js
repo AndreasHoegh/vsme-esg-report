@@ -1,192 +1,243 @@
-// Demo SVG images — factory exterior, production floor, workforce
-const _coverSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 320"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a7d5c"/><stop offset="1" stop-color="#0a1f12"/></linearGradient></defs><rect width="500" height="320" fill="url(#g)"/><rect x="0" y="200" width="500" height="120" fill="#07110a" opacity=".65"/><rect x="20" y="135" width="90" height="185" fill="#0e2c1a" opacity=".95"/><rect x="140" y="90" width="130" height="230" fill="#0b2414" opacity=".95"/><rect x="305" y="145" width="95" height="175" fill="#0e2c1a" opacity=".95"/><rect x="430" y="160" width="70" height="160" fill="#0b2414" opacity=".9"/><rect x="38" y="90" width="12" height="50" fill="#060f0a"/><rect x="168" y="55" width="12" height="40" fill="#060f0a"/><rect x="192" y="62" width="10" height="34" fill="#060f0a"/><rect x="322" y="108" width="11" height="42" fill="#060f0a"/><rect x="35" y="160" width="16" height="13" fill="#5aaa80" opacity=".55"/><rect x="60" y="160" width="16" height="13" fill="#5aaa80" opacity=".45"/><rect x="35" y="183" width="16" height="13" fill="#5aaa80" opacity=".35"/><rect x="155" y="118" width="18" height="13" fill="#5aaa80" opacity=".55"/><rect x="184" y="118" width="18" height="13" fill="#5aaa80" opacity=".45"/><rect x="213" y="118" width="18" height="13" fill="#5aaa80" opacity=".35"/><rect x="155" y="141" width="18" height="13" fill="#5aaa80" opacity=".45"/><rect x="184" y="141" width="18" height="13" fill="#5aaa80" opacity=".5"/><rect x="320" y="168" width="16" height="13" fill="#5aaa80" opacity=".5"/><rect x="346" y="168" width="16" height="13" fill="#5aaa80" opacity=".4"/><rect x="0" y="290" width="500" height="30" fill="#276B4D" opacity=".12"/></svg>`
-
-const _companySVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 320"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#295e44"/><stop offset="1" stop-color="#0b1e12"/></linearGradient></defs><rect width="500" height="320" fill="url(#g)"/><polygon points="0,320 250,170 500,320" fill="#07130b" opacity=".55"/><rect x="60" y="165" width="75" height="155" fill="#102b19" rx="3"/><rect x="175" y="140" width="65" height="180" fill="#0d2415" rx="3"/><rect x="285" y="155" width="85" height="165" fill="#102b19" rx="3"/><rect x="410" y="168" width="55" height="152" fill="#0d2415" rx="3"/><rect x="60" y="165" width="75" height="5" fill="#276B4D" opacity=".7" rx="2"/><rect x="175" y="140" width="65" height="5" fill="#276B4D" opacity=".6" rx="2"/><rect x="285" y="155" width="85" height="5" fill="#276B4D" opacity=".7" rx="2"/><rect x="410" y="168" width="55" height="5" fill="#276B4D" opacity=".6" rx="2"/><rect x="95" y="38" width="6" height="88" fill="#3d8a62" opacity=".5"/><rect x="210" y="28" width="6" height="95" fill="#3d8a62" opacity=".45"/><rect x="330" y="33" width="6" height="90" fill="#3d8a62" opacity=".5"/><ellipse cx="98" cy="36" rx="14" ry="5" fill="#d8eee2" opacity=".5"/><ellipse cx="213" cy="26" rx="14" ry="5" fill="#d8eee2" opacity=".45"/><ellipse cx="333" cy="31" rx="14" ry="5" fill="#d8eee2" opacity=".5"/><rect x="80" y="190" width="14" height="11" fill="#5aaa80" opacity=".45"/><rect x="100" y="190" width="14" height="11" fill="#5aaa80" opacity=".4"/><rect x="190" y="168" width="14" height="11" fill="#5aaa80" opacity=".45"/><rect x="210" y="168" width="14" height="11" fill="#5aaa80" opacity=".4"/><rect x="300" y="180" width="14" height="11" fill="#5aaa80" opacity=".45"/><rect x="320" y="180" width="14" height="11" fill="#5aaa80" opacity=".4"/></svg>`
-
-const _workforceSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 320"><defs><linearGradient id="g" x1="0" y1="0" x2=".5" y2="1"><stop offset="0" stop-color="#346652"/><stop offset="1" stop-color="#0c1e13"/></linearGradient></defs><rect width="500" height="320" fill="url(#g)"/><rect x="0" y="185" width="500" height="135" fill="#09150d" opacity=".7"/><rect x="90" y="45" width="320" height="55" fill="#276B4D" opacity=".22" rx="4"/><rect x="100" y="55" width="200" height="3" fill="#6ab58c" opacity=".5"/><rect x="100" y="68" width="140" height="3" fill="#6ab58c" opacity=".4"/><ellipse cx="75" cy="148" rx="26" ry="26" fill="#0e2a1b"/><rect x="52" y="172" width="46" height="148" fill="#0e2a1b" rx="4"/><ellipse cx="165" cy="134" rx="26" ry="26" fill="#122e1e"/><rect x="142" y="158" width="46" height="162" fill="#122e1e" rx="4"/><ellipse cx="255" cy="140" rx="28" ry="28" fill="#0e2a1b"/><rect x="230" y="166" width="50" height="154" fill="#0e2a1b" rx="4"/><ellipse cx="345" cy="137" rx="25" ry="25" fill="#122e1e"/><rect x="323" y="160" width="44" height="160" fill="#122e1e" rx="4"/><ellipse cx="430" cy="145" rx="24" ry="24" fill="#0e2a1b"/><rect x="409" y="168" width="42" height="152" fill="#0e2a1b" rx="4"/><ellipse cx="75" cy="148" rx="26" ry="26" fill="#276B4D" opacity=".2"/><ellipse cx="255" cy="140" rx="28" ry="28" fill="#276B4D" opacity=".2"/><ellipse cx="430" cy="145" rx="24" ry="24" fill="#276B4D" opacity=".18"/></svg>`
-
-const _govSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 320"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#295e42"/><stop offset="1" stop-color="#091a0e"/></linearGradient></defs><rect width="500" height="320" fill="url(#g)"/><rect x="0" y="280" width="500" height="40" fill="#071510" opacity=".75"/><polygon points="110,140 250,55 390,140" fill="#0a2015" opacity=".9"/><rect x="130" y="140" width="240" height="180" fill="#0d2819" opacity=".95"/><rect x="145" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="178" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="211" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="244" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="277" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="310" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="343" y="140" width="16" height="175" fill="#111f14" opacity=".85"/><rect x="108" y="275" width="284" height="8" fill="#0a1f12" opacity=".9"/><rect x="100" y="283" width="300" height="8" fill="#081510" opacity=".85"/><rect x="155" y="165" width="18" height="13" fill="#5aaa80" opacity=".4"/><rect x="190" y="165" width="18" height="13" fill="#5aaa80" opacity=".35"/><rect x="225" y="165" width="18" height="13" fill="#5aaa80" opacity=".4"/><rect x="260" y="165" width="18" height="13" fill="#5aaa80" opacity=".35"/><rect x="295" y="165" width="18" height="13" fill="#5aaa80" opacity=".4"/><rect x="330" y="165" width="18" height="13" fill="#5aaa80" opacity=".3"/><rect x="155" y="195" width="18" height="13" fill="#5aaa80" opacity=".3"/><rect x="225" y="195" width="18" height="13" fill="#5aaa80" opacity=".35"/><rect x="295" y="195" width="18" height="13" fill="#5aaa80" opacity=".3"/><rect x="215" y="245" width="70" height="75" fill="#081510" opacity=".9"/><rect x="226" y="255" width="20" height="35" fill="#276B4D" opacity=".2"/><rect x="254" y="255" width="20" height="35" fill="#276B4D" opacity=".15"/><rect x="240" y="80" width="20" height="62" fill="#122c1e" opacity=".75"/><rect x="225" y="68" width="50" height="16" fill="#122c1e" opacity=".7"/></svg>`
-
+// Example data based on the Capra Robotics ApS VSME 2025 report.
+// Basic-module content (B1, B3, B6, B7, B8, B9, B10, B11, SDG, CERT) mirrors that
+// report; B2, B4 and B5 are intentionally left empty so they do not generate pages.
+// Comprehensive-module (C1–C9) example data is also filled in and the report is set
+// to 'comprehensive' so the C sections render. Switch Reporting Module back to
+// "Basic" in step B1 to see the basic-only version. C2 has no content because it
+// elaborates B2 policies, which are not used in this example.
 const demoData = {
   // B1 General Information
-  companyName: 'NordGreen Manufacturing A/S',
-  legalForm: 'Aktieselskab (A/S)',
-  registrationNumber: 'DK38291045',
-  country: 'Denmark',
-  sector: 'Manufacturing',
-  naceCode: 'C25.61',
-  employeeCount: '247',
-  reportingYear: '2024',
-  reportingPeriodStart: '2024-01-01',
-  reportingPeriodEnd: '2024-12-31',
-  currency: 'EUR',
-  balanceSum: '28500000',
-  revenue: '42300000',
-  reportingBasis: 'individual',
-  reportingModule: 'basic',
-  contactName: 'Mette Andersen',
-  contactEmail: 'sustainability@nordgreen.dk',
-  contactPhone: '+45 70 20 30 40',
-  companyDescription: '<p>NordGreen Manufacturing A/S is a Danish metal fabrication company specialising in surface treatment and precision components for the automotive and industrial equipment sectors. Founded in 1991 and headquartered in Odense, we operate one production facility covering 18,400 m² and export to 14 countries across Europe.</p><p>Sustainability is central to our long-term business strategy. We are committed to reducing our environmental footprint, ensuring fair and safe working conditions, and maintaining the highest standards of corporate conduct.</p>',
+  companyName: "Capra Robotics ApS",
+  legalForm: "ApS",
+  registrationNumber: "39052636",
+  country: "Denmark",
+  sector: "Manufacture of lifting and handling equipment",
+  naceCode: "282200",
+  address: "Skanderborgvej 232, 8260 Viby J, Denmark",
+  secondaryAddress: "Sletvej 50Y. 8310 Tranbjerg J, Denmark",
+  website: "https://capra.ooo/",
+  employeeCount: "52",
+  reportingYear: "2025",
+  reportingPeriodStart: "2025-01-01",
+  reportingPeriodEnd: "2025-12-31",
+  currency: "DKK",
+  balanceSum: "74323000",
+  revenue: "", // Excluded — classified as confidential commercial information
+  reportingBasis: "individual",
+  reportingModule: "comprehensive",
+  contactName: "Alexander Mundt Schärfe",
+  contactEmail: "Alexander@capra.ooo",
+  contactPhone: "",
+  companyDescription: `<p>Capra Robotics® is a Danish deep-tech company revolutionizing the use of mobile robots. We deliver end-to-end robotics solutions built on a patented, highly versatile wheel frame that delivers unmatched agility and robustness across indoor and outdoor environments.</p><p>We focus on developing robotics solutions that address concrete operational challenges. By providing adaptable, standardized solutions for inspection, logistics, and maintenance, we enable organizations to automate demanding tasks, strengthen process reliability, and scale their operations – allowing teams to focus on higher-value work.</p>`,
 
-  // B2 Policies & Actions
-  policyClimate: 'yes',
-  policyClimatePublic: 'yes',
-  policyClimateTargets: 'yes',
-
-  policyPollution: 'yes',
-  policyPollutionPublic: 'yes',
-  policyPollutionTargets: 'in_progress',
-
-  policyWaterMarine: 'yes',
-  policyWaterMarinePublic: 'no',
-  policyWaterMarineTargets: 'no',
-
-  policyBiodiversity: 'in_progress',
-  policyBiodiversityPublic: 'no',
-  policyBiodiversityTargets: 'no',
-
-  policyCircular: 'yes',
-  policyCircularPublic: 'yes',
-  policyCircularTargets: 'yes',
-
-  policyOwnWorkforce: 'yes',
-  policyOwnWorkforcePublic: 'yes',
-  policyOwnWorkforceTargets: 'yes',
-
-  policyValueChain: 'in_progress',
-  policyValueChainPublic: 'no',
-  policyValueChainTargets: 'no',
-
-  policyCommunities: 'yes',
-  policyCommunitiesPublic: 'no',
-  policyCommunitiesTargets: 'no',
-
-  policyConsumers: 'yes',
-  policyConsumersPublic: 'yes',
-  policyConsumersTargets: 'no',
-
-  policyGovernance: 'yes',
-  policyGovernancePublic: 'yes',
-  policyGovernanceTargets: 'yes',
-
-  // B3 Energy
-  totalEnergyConsumption: '4820',
-  energyUnit: 'MWh',
-  renewableEnergyConsumption: '1930',
-  nonRenewableEnergyConsumption: '2890',
-  electricityConsumption: '2140',
-  naturalGasConsumption: '48500',
-  gasUnit: 'm³',
-  fuelOilConsumption: '12800',
-  fuelOilUnit: 'L',
-  districtHeatingConsumption: '380',
-  districtUnit: 'MWh',
-  hasEnergyManagementSystem: 'yes',
-  energyReductionTarget: '15% reduction in total energy intensity by 2027 (baseline: 2022)',
-  energyNarrative: '<p>NordGreen has implemented an ISO 50001-aligned energy management framework covering all production processes. A solar PV installation commissioned in Q2 2023 now supplies approximately 40% of site electricity. Ongoing investments in LED lighting, heat recovery on the paint line, and variable-speed compressor drives contributed to a 7% reduction in energy intensity per tonne of output compared to 2023.</p>',
+  // B3 Energy & GHG Emissions
+  totalEnergyConsumption: "94776",
+  energyUnit: "kWh",
+  renewableEnergyConsumption: "90271",
+  electricityConsumption: "74303",
+  electricityRenewable: "74303",
+  districtHeatingConsumption: "20472.70",
+  districtHeatingRenewable: "15968",
+  districtUnit: "kWh",
+  naturalGasConsumption: "",
+  fuelOilConsumption: "916",
+  fuelOilUnit: "L",
+  energyNarrative: `<p>Capra Robotics' direct climate footprint comes primarily from purchased energy and a small fleet of company vehicles used for sales and service visits. Scope 1 emissions (2.4 tCO₂e) stem from diesel consumption (916 L) for these vehicles. Scope 2 emissions (8.6 tCO₂e, market-based) reflect the energy use of our offices, development and assembly areas.</p><p>Our electricity is covered by a green electricity agreement with AURA, where consumption is matched with guarantees of origin from renewable sources such as wind, solar, hydropower and biomass. As a result, 100% of our purchased electricity is reported as renewable. We acknowledge that the physical electricity reaching our facilities is a mix of renewable and non-renewable sources, in line with the shared Danish grid, but our agreement ensures that an equivalent amount of renewable electricity is purchased on our behalf. Our district heating is 78% renewable, based on the supplier's reported mix.</p><p>While our operational footprint is modest, our scope 3 emissions are several times larger. A preliminary screening indicates a cradle-to-gate footprint of approximately 60 tCO₂e per year, allocated to procurement of components and materials. This figure covers the production of one of our products (the Capra 500) multiplied by 2025 sales volumes, and represents an order-of-magnitude estimate based on customs codes and component weight. It does not include use-phase emissions, end-of-life, transport or business travel, all of which remain to be quantified. Obtaining a full life-cycle assessment is a stated goal for the years ahead.</p>`,
 
   // B3 GHG
-  scope1Emissions: '312',
-  scope2Emissions: '487',
-  scope3Emissions: '2140',
-  ghgUnit: 'tCO2e',
-  ghgBaseYear: '2021',
-  ghgReductionTarget: '40% absolute reduction in Scope 1+2 by 2030 vs. 2021 baseline',
-  methodologyDescription: 'GHG Protocol Corporate Standard (2004) with location-based method for Scope 2. Emission factors: Danish Energy Agency 2024 grid factor (0.113 kg CO₂e/kWh), IPCC AR6 GWPs.',
-  ghgNarrative: '<p>Total Scope 1 and 2 emissions fell by 11% year-on-year, primarily driven by the expanded solar installation and a switch from fuel oil to natural gas in the thermal process furnace. Scope 3 emissions are estimated for upstream purchased goods and services (Category 1), which represent the largest share of our value-chain footprint. A detailed Scope 3 inventory is planned for 2025.</p>',
-
-  // B4 Pollution
-  hasPollutionReporting: 'yes',
-  pollutionDescription: 'Surface treatment processes (zinc phosphating, electroplating) generate controlled process wastewater containing heavy metals and phosphates. All discharges are pre-treated on-site before release to the municipal sewer system under permit from Odense Municipality (permit ref. OD-2021-0447). Air emissions from solvent-based coating operations are captured by an RTO unit achieving >98% VOC destruction efficiency.',
-  pollutionNarrative: '<p>NordGreen operated within all regulatory permit limits throughout 2024. Three minor non-conformances relating to zinc discharge concentrations were detected through self-monitoring in Q1; corrective actions were implemented within 14 days and permit limits were met for the remainder of the year. No enforcement notices or fines were received.</p>',
-
-  // B5 Biodiversity
-  hasBiodiversitySites: 'no',
-  biodiversityDescription: '',
-  landUseTotal: '2.4',
-  landUseSensitive: '0',
-  biodiversityNarrative: '<p>Our single production facility is located in an established industrial zone on the outskirts of Odense. The site is not adjacent to any Natura 2000 areas or other officially designated sensitive habitats. Total land occupied is 2.4 hectares (fully sealed, impermeable surface). No significant impacts on biodiversity were identified during the reporting year.</p>',
+  scope1Emissions: "2.4",
+  scope2Emissions: "8.6",
+  scope3Emissions: "11.52",
+  scope3PurchasedGoods: "11.52",
+  ghgUnit: "tCO2e",
 
   // B6 Water
-  totalWaterWithdrawal: '8450',
-  waterUnit: 'm³',
-  waterFromStressedAreas: '0',
-  waterRecycled: '1240',
-  waterDischarge: '7100',
-  waterDischargeDestination: 'Municipal wastewater treatment plant (Odense NE WWTP)',
-  waterNarrative: '<p>Water is primarily consumed in surface treatment rinsing cascades and cooling circuits. A closed-loop cooling tower upgrade in 2023 reduced make-up water demand by 18%. A new rinse-water recycling system installed in Q3 2024 now recirculates 1,240 m³ annually that would previously have been discharged. Denmark is classified as a low water-stress country; no operations draw from water-stressed catchments.</p>',
+  totalWaterWithdrawal: "117.6",
+  waterUnit: "m³",
+  waterFromStressedAreas: "0",
+  waterRecycled: "",
+  waterDischarge: "117.6",
+  waterDischargeDestination: "",
+  waterNarrative: `<p>Capra Robotics operates from office, development and light assembly facilities. None of which involve water-intensive processes. Our total withdrawal of 117.6 m³ in 2025 stems from sanitary use, kitchen facilities and cleaning. We are not located in a water-stressed area. Water is not a material issue for our operations.</p>`,
 
   // B7 Resources & Circular Economy
-  usesCircularEconomy: 'yes',
-  circularEconomyDescription: 'Metal swarf and off-cuts (steel, aluminium) are 100% sold to certified scrap metal recyclers under long-term agreements. Cardboard and plastic packaging from incoming components is sorted and collected for recycling. Chemical drums are returned to suppliers under a take-back scheme. We target zero waste to landfill by 2026.',
-  wasteUnit: 'tonnes',
+  usesCircularEconomy: "yes",
+  circularEconomyDescription: `Capra's products are built primarily from aluminium, steel and plastic — durable materials suited to harsh operating conditions. Our circular economy work is at an early stage and currently consists of three concrete actions: (1) we sort waste at our facilities and achieved a recycling rate of 27% in 2025, with 100% of metal, plastic and paper waste recycled; (2) we are testing repair and refurbishment options for end-of-life robots returned by customers; (3) we have begun evaluating design choices that affect recyclability, including the painting of aluminium parts, which currently complicates material recovery.
+
+Areas under active assessment for 2026–2027 include: design for disassembly, a formalised take-back system, and a leasing/robot-as-a-service business model. These are explicitly described here as goals under evaluation, not implemented practices.`,
+  wasteUnit: "kg",
   wasteTypes: [
-    { id: '1', typeKey: 'Metal scrap (steel/aluminium)', amount: '268', recycled: '268', hazardous: false },
-    { id: '2', typeKey: 'Hazardous chemical waste', amount: '18', recycled: '0', hazardous: true },
-    { id: '3', typeKey: 'Packaging (cardboard/plastic)', amount: '14', recycled: '12', hazardous: false },
-    { id: '4', typeKey: 'Mixed non-hazardous waste', amount: '12', recycled: '0', hazardous: false },
+    {
+      id: "1",
+      typeKey: "Paper & Cardboard",
+      amount: "850",
+      recycled: "850",
+      hazardous: false,
+    },
+    {
+      id: "2",
+      typeKey: "Residual waste",
+      amount: "1540",
+      recycled: "0",
+      hazardous: false,
+    },
+    {
+      id: "3",
+      typeKey: "Organic / Food Waste",
+      amount: "1615",
+      recycled: "0",
+      hazardous: false,
+    },
+    {
+      id: "4",
+      typeKey: "Plastic",
+      amount: "30",
+      recycled: "30",
+      hazardous: false,
+    },
+    {
+      id: "5",
+      typeKey: "Electronic Waste (e-waste)",
+      amount: "71",
+      recycled: "64",
+      hazardous: false,
+    },
+    {
+      id: "6",
+      typeKey: "Metal / Scrap",
+      amount: "225",
+      recycled: "225",
+      hazardous: false,
+    },
   ],
-  wasteNarrative: '<p>NordGreen achieved an 86% diversion rate from landfill in 2024, up from 79% in 2023. The remaining landfill disposal relates to contaminated mixed waste from maintenance activities for which no recycling route is currently available. Hazardous waste (spent electroplating solutions, solvents) is handled exclusively by licensed hazardous waste contractors in compliance with EU Waste Framework Directive requirements.</p>',
+  wasteNarrative: `<p>At our location, we sort waste according to current regulations, and reuse and recycle whenever possible.</p><p>We want to transition from a linear model of take-make-waste to a circular model that can help safeguard the world's finite resources and eliminate waste. Therefore, we will prioritize to focus on material efficiency in our innovation process and focus on reuse, upgrading customers' robots, and extending the product life.</p><p>Going forward, we will assess the possibility of incorporating "design for disassembly", which involves products' ability to be separated into components to help the recyclability of each individual part of the product. Additionally, we will assess the possibility of a take-back system for our robots and explore the possibility of developing a business model around leasing our robots.</p>`,
 
   // B8 Workforce
-  totalEmployees: '247',
-  permanentEmployees: '218',
-  temporaryEmployees: '29',
-  fullTimeEmployees: '231',
-  partTimeEmployees: '16',
-  maleEmployees: '163',
-  femaleEmployees: '84',
-  otherGenderEmployees: '0',
-  notRegisteredGender: '0',
-  employeesUnder30: '42',
-  employees30to50: '138',
-  employeesOver50: '67',
-  employeesByCountry: 'Denmark: 223, Poland: 14, Romania: 10',
-  newHires: '31',
-  employeeTurnover: '9.2',
-  nonEmployeeWorkers: '12',
-  workforceNarrative: '<p>NordGreen employed 247 people as of 31 December 2024, of whom 218 hold permanent contracts. Women represent 34% of the workforce, an increase from 30% in 2022, driven by targeted recruitment initiatives in engineering and quality roles. The company employs workers from 3 countries. In addition, 12 non-employee contractors (facility maintenance and IT) worked regularly on-site during the year.</p>',
+  totalEmployees: "52.3",
+  permanentEmployees: "52.3",
+  temporaryEmployees: "0",
+  fullTimeEmployees: "",
+  partTimeEmployees: "",
+  maleEmployees: "46.6",
+  femaleEmployees: "5.7",
+  otherGenderEmployees: "0",
+  notRegisteredGender: "0",
+  newHires: "",
+  employeeTurnover: "",
+  nonEmployeeWorkers: "",
+  workforceNarrative: `<p>Capra Robotics employed 47 people at year-end 2025, all on permanent, full-time contracts and located in Denmark. The team is 10.2% female, reflecting the broader gender imbalance in the Danish robotics industry.</p>`,
 
   // B9 Health & Safety
-  workRelatedInjuries: '3',
-  workRelatedFatalities: '0',
-  fatalitiesFromIllHealth: '0',
-  workRelatedIllHealth: '1',
-  sickLeaveDays: '1842',
-  lostDays: '87',
-  hasOHSManagementSystem: 'yes',
-  ohsCertification: 'ISO 45001:2018 (certified by DNV, valid to 2026)',
-  safetyNarrative: '<p>Safety performance improved in 2024, with three recordable injuries compared to five in 2023. All three incidents were minor hand and finger injuries occurring in the pressing department; none resulted in permanent disability. Root cause analyses were completed within 5 working days for each incident and corrective actions implemented. The serious work-related ill-health case relates to one employee diagnosed with occupational noise-induced hearing loss; enhanced audiometric monitoring has been introduced for all press operators.</p>',
+  workRelatedInjuries: "0",
+  workRelatedFatalities: "0",
+  fatalitiesFromIllHealth: "0",
+  workRelatedIllHealth: "",
+  sickLeaveDays: "548",
+  lostDays: "0",
+  hasOHSManagementSystem: "no",
+  ohsCertification: "",
+  safetyNarrative: `<p>We recorded zero injuries and zero fatalities in 2025. Total sick leave of 548 days corresponds to approximately 9.8 days per employee, in line with the Danish national average. We do not currently operate a certified OHS management system, but follow Danish working environment regulations and conduct regular workplace assessments (APV).</p>`,
 
   // B10 Pay & Training
-  minimumWageCompliance: 'yes',
-  maleAvgSalary: '52400',
-  femaleAvgSalary: '48900',
-  collectiveBargainingCoverage: '78',
-  avgTrainingHours: '18',
-  avgTrainingHoursMale: '17',
-  avgTrainingHoursFemale: '20',
-  avgTrainingHoursOther: '',
-  trainingInvestment: '186000',
-  payNarrative: '<p>All NordGreen employees receive remuneration above the applicable Danish minimum wage. 78% of employees are covered by a collective bargaining agreement with the Danish Metal Workers Union (Dansk Metal). The gender pay gap of 6.7% reflects an underrepresentation of women in senior technical and management roles; a pay equity review was conducted in Q4 2024 and targeted adjustments totalling EUR 34,000 were made.</p>',
+  minimumWageCompliance: "yes",
+  maleAvgSalary: "36476",
+  femaleAvgSalary: "35151",
+  collectiveBargainingCoverage: "100",
+  avgTrainingHours: "8.04",
+  avgTrainingHoursMale: "",
+  avgTrainingHoursFemale: "",
+  trainingInvestment: "",
+  payNarrative: `<p>Our gender pay gap of 3.6% (male average DKK 36,476 vs. female DKK 35,151) is below the Danish national average. All employees are covered by collective bargaining agreements. Average training was 8.04 hours per employee in 2025.</p>`,
 
   // Appendix — Certifications
-  certificationsList: 'ISO 50001:2018 - Energy Management System (certified by Bureau Veritas, valid to 2027)\nISO 45001:2018 - Occupational Health & Safety Management (certified by DNV, valid to 2026)\nISO 9001:2015 - Quality Management System (certified by TÜV SÜD, valid to 2026)\nEU ETS - EU Emissions Trading Scheme participant\nOdense Municipality Environmental Permit - Surface Treatment Operations (ref. OD-2021-0447)',
+  certificationsList: "",
 
   // B11 Corporate Conduct
-  corruptionConvictions: '0',
-  corruptionFinesTotal: '0',
-  corruptionNarrative: '<p>NordGreen maintains a zero-tolerance policy on corruption, bribery, and anti-competitive behaviour, set out in our Code of Business Conduct. All employees complete mandatory e-learning on anti-corruption annually; completion rate was 97% in 2024. No cases of corruption or bribery were identified, investigated, or confirmed during the reporting year. A confidential whistleblowing channel received two reports in 2024; both were assessed as unrelated to corruption or misconduct.</p>',
+  corruptionConvictions: "0",
+  corruptionFinesTotal: "0",
+  corruptionNarrative: `<p>Capra Robotics is committed to the highest standards of integrity and legal compliance. We maintained a clean record in 2025 with zero confirmed incidents of corruption or anti-competitive conduct. Our business operations strictly adhere to Danish and EU competition law, GDPR, and all applicable tax regulations. These commitments are reinforced by our internal employee handbook and business code of conduct, which mandates ethical conduct across all levels of the organization.</p><p><strong>Avoiding conflicts of interest:</strong> We pride ourselves on making decisions based on objective considerations and not to be improperly guided by personal interests, aligned with the OECD Guidelines.</p><p><strong>Free competition:</strong> We adhere to the OECD Guidelines for fair competition and comply with antitrust regulations to promote fair and open markets.</p><p><strong>Anti-corruption:</strong> We adhere to UN Global Compact Principle 10, working against corruption, bribery, and extortion in all forms.</p><p><strong>Money laundering:</strong> We comply with OECD Guidelines on ethical financial practices and anti-money laundering regulations.</p><p><strong>Conflict minerals:</strong> Our ethical sourcing aligns with the OECD Due Diligence Guidance for Responsible Supply Chains of Minerals.</p><p><strong>Data privacy and security:</strong> We uphold the OECD Guidelines on data privacy and security and applicable data protection laws.</p>`,
 
-  images: {
-    coverPhoto:          'data:image/svg+xml;base64,' + btoa(_coverSVG),
-    companyPhoto:        'data:image/svg+xml;base64,' + btoa(_companySVG),
-    workforcePhoto:      'data:image/svg+xml;base64,' + btoa(_workforceSVG),
-    esgEnvironmentPhoto: 'data:image/svg+xml;base64,' + btoa(_companySVG),
-    esgSocialPhoto:      'data:image/svg+xml;base64,' + btoa(_workforceSVG),
-    esgGovernancePhoto:  'data:image/svg+xml;base64,' + btoa(_govSVG),
+  // SDG — UN Sustainable Development Goals
+  sdgGoals: [9, 11, 12, 13],
+  sdgNarrative: `Capra Robotics aligns its environmental commitment with UN Sustainable Development Goals 9, 11, 12, and 13, which encourage precautionary approaches to environmental challenges, promoting greater environmental responsibility, and fostering environmentally friendly technologies. We also reference the OECD Guidelines' recommendations on responsible environmental management.`,
+  sdgGoalNarratives: {
+    9: "Our autonomous robots are designed to support industrial automation and infrastructure maintenance, contributing to more efficient and resilient industrial systems.",
+    11: "Our maintenance robots (e.g. salt spreading, street cleaning) directly support cleaner, safer urban environments.",
+    12: "Our work on circular economy — material recycling, exploring take-back and refurbishment — aligns with this goal. We acknowledge that implementation is at an early stage.",
+    13: "By measuring and disclosing our scope 1, 2 and partial scope 3 emissions, we are working to understand and reduce our climate impact.",
   },
-}
 
-export default demoData
+  // ─── Comprehensive Module (Udvidet Modul) C1–C9 ──────────────────────────────
+  // C2 is omitted: it elaborates the B2 policy matrix, which is empty in this example.
+
+  // C1 — Strategy: business model & sustainability initiatives (with B1)
+  c1Products: `Capra Robotics designs and manufactures autonomous mobile robots (AMRs) built on a patented, highly versatile wheel frame. Our core platforms (including the Capra Hircus and Capra 500) are delivered with software and integration services for inspection, logistics, and maintenance tasks.`,
+  c1Markets: `We sell primarily B2B to industrial, municipal, and facility-management customers across Europe, with a growing presence in North America. Sales run both directly and through a network of certified system-integrator partners.`,
+  c1BusinessRelations: `Around 40 active suppliers provide electronics, motors, batteries, and machined aluminium and steel components, mainly in Denmark, Germany, and Eastern Europe. Customers range from utilities and municipalities to logistics and manufacturing firms. Robots reach end-users via direct sales and integration partners.`,
+  c1StrategyElements: `Sustainability is embedded in our product strategy: durable, repairable hardware designed for a long service life, a shift toward circular business models (refurbishment and robot-as-a-service), and reducing the embedded carbon of our components — which represents the largest part of our footprint.`,
+
+  // C3 — GHG reduction targets & climate transition (with B3)
+  c3HasTargets: "yes",
+  c3BaselineYear: "2025",
+  c3Scope1Target: "-50% by 2030",
+  c3Scope1Baseline: "2.4",
+  c3Scope2Target: "-50% by 2030",
+  c3Scope2Baseline: "8.6",
+  c3Scope3Target: "Quantify and set a target by 2027",
+  c3Scope3Baseline: "60",
+  c3Actions: `Transition the company vehicle fleet to electric
+Maintain 100% renewable electricity via guarantees of origin
+Increase the renewable share of district heating
+Engage key component suppliers on emission data and lower-carbon materials
+Complete a full Scope 3 life-cycle assessment`,
+  c3TransitionPlan: `Capra's transition plan focuses on the embedded carbon of our products, which a preliminary screening shows is several times larger than our operational footprint. In the near term we are decarbonising our own operations through fleet electrification and renewable energy. In the medium term we will work with suppliers to reduce component emissions and design products for lower lifecycle impact. A full life-cycle assessment, planned for 2026–2027, will allow us to set a science-based Scope 3 reduction target.`,
+
+  // C4 — Climate risks (with B3 / Environment)
+  c4HasRisks: "yes",
+  c4PhysicalRisks: `As an asset-light company operating from offices and light-assembly facilities in Denmark, our direct physical climate exposure is low. The main chronic risk is potential disruption to our supply chain from extreme weather affecting component manufacturers and logistics in more exposed regions.`,
+  c4TransitionRisks: `Transition risks include tightening EU product and battery regulations, growing customer expectations for low-carbon and circular products, and rising costs or constrained supply of low-carbon materials. These also represent an opportunity, as demand for energy-efficient automation is expected to grow.`,
+  c4TimeHorizon: "medium",
+  c4Adaptation: "yes",
+  c4AdaptationDescription: `We are diversifying our supplier base and beginning to factor climate resilience into procurement and product-design decisions.`,
+  c4FinancialImpact: `Climate-related risks are not currently assessed as material to short-term financial performance, but supply-chain and regulatory factors could affect component costs over the medium term.`,
+
+  // C5 — Additional workforce characteristics (with B8)
+  c5FemaleManagers: "1",
+  c5MaleManagers: "6",
+  c5SelfEmployed: "0",
+  c5AgencyWorkers: "0",
+
+  // C6 — Human rights policies & processes, own workforce (with B8)
+  c6HasPolicy: "yes",
+  c6HasGrievance: "yes",
+  c6CoversChildLabour: "yes",
+  c6CoversForcedLabour: "yes",
+  c6CoversTrafficking: "yes",
+  c6CoversDiscrimination: "yes",
+  c6CoversAccidentPrevention: "yes",
+  c6CoversOther: "Freedom of association and fair working conditions",
+
+  // C7 — Severe negative human-rights incidents (with B8)
+  c7ChildLabour: "no",
+  c7ForcedLabour: "no",
+  c7Trafficking: "no",
+  c7Discrimination: "no",
+  c7OwnWorkforceActions: "",
+  c7ValueChainWorkers: "",
+  c7ValueChainCommunities: "",
+  c7ValueChainConsumers: "",
+
+  // C8 — Revenues from certain sectors & EU benchmark exclusion (with B11)
+  // Capra has no activity in these sectors, so revenue fields stay blank and the
+  // company does not exceed any EU Paris-aligned benchmark exclusion threshold.
+  c8BenchmarkCoal: "no",
+  c8BenchmarkOil: "no",
+  c8BenchmarkGas: "no",
+  c8BenchmarkElectricity: "no",
+
+  // C9 — Gender diversity in the top governance body (with B11)
+  c9FemaleBoard: "1",
+  c9MaleBoard: "4",
+};
+
+export default demoData;

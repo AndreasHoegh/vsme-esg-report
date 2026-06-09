@@ -146,7 +146,11 @@ function AppInner() {
               <span className="brand-icon">🌱</span>
               <div>
                 <span className="brand-name">VSME ESG Builder</span>
-                <span className="brand-sub">Basic Module (B1–B11)</span>
+                <span className="brand-sub">
+                  {data.reportingModule === 'comprehensive'
+                    ? 'Basic + Comprehensive (B1–B11, C1–C9)'
+                    : 'Basic Module (B1–B11)'}
+                </span>
               </div>
             </div>
           </div>

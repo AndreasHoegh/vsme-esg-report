@@ -42,6 +42,7 @@ function cvt(value, from, to) {
 export default function Step3_Energy() {
   const { data, update } = useForm();
   const u = (f) => (v) => update({ [f]: v });
+  const comprehensive = data.reportingModule === "comprehensive";
 
   const scope1 = n(data.scope1Emissions);
   const scope2 = n(data.scope2Emissions);
@@ -707,17 +708,17 @@ export default function Step3_Energy() {
               scope1 > 0 && {
                 label: "Scope 1 — Direct",
                 value: scope1,
-                color: "#f97316",
+                color: "#F59E0B",
               },
               scope2 > 0 && {
                 label: "Scope 2 — Purchased",
                 value: scope2,
-                color: "#3b82f6",
+                color: "#3B82F6",
               },
               scope3 > 0 && {
                 label: "Scope 3 — Value Chain",
                 value: scope3,
-                color: "#8b5cf6",
+                color: "#8B5CF6",
               },
             ].filter(Boolean);
             const maxVal = Math.max(...bars.map((b) => b.value));
@@ -870,6 +871,243 @@ export default function Step3_Energy() {
           label="Energy certificate, utility bill snapshot, or GHG chart"
         />
       </section>
+
+      {comprehensive && (
+        <>
+          {/* ══ C3 — GHG REDUCTION TARGETS & CLIMATE TRANSITION ══════════════ */}
+          <section className="form-section form-section--comprehensive">
+            <div className="comprehensive-tag">Comprehensive Module · C3</div>
+            <h3>GHG Reduction Targets &amp; Climate Transition</h3>
+            <p className="section-desc">
+              Report your GHG reduction targets per scope and your transition
+              plan. Appears with the Energy &amp; GHG section of the report.
+            </p>
+            <FormField label="Has your company set GHG reduction targets?">
+              <RadioGroup
+                name="c3HasTargets"
+                value={data.c3HasTargets}
+                onChange={u("c3HasTargets")}
+                options={YES_NO}
+              />
+            </FormField>
+            {data.c3HasTargets === "yes" && (
+              <>
+                <FormField
+                  label="Baseline Year"
+                  tooltip="The year against which reduction targets are measured."
+                  id="c3BaseYr"
+                >
+                  <Input
+                    id="c3BaseYr"
+                    type="number"
+                    min="2000"
+                    max="2050"
+                    value={data.c3BaselineYear}
+                    onChange={u("c3BaselineYear")}
+                    placeholder="2021"
+                  />
+                </FormField>
+                <div className="form-grid form-grid--2">
+                  <FormField
+                    label="Scope 1 target"
+                    tooltip="e.g. -30% by 2030 (state unit: % or tCO2e)."
+                    id="c3s1t"
+                  >
+                    <Input
+                      id="c3s1t"
+                      value={data.c3Scope1Target}
+                      onChange={u("c3Scope1Target")}
+                      placeholder="-30% by 2030"
+                    />
+                  </FormField>
+                  <FormField
+                    label="Scope 1 baseline emissions"
+                    tooltip="Emissions in the baseline year."
+                    id="c3s1b"
+                  >
+                    <Input
+                      id="c3s1b"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={data.c3Scope1Baseline}
+                      onChange={u("c3Scope1Baseline")}
+                      unit={gu}
+                    />
+                  </FormField>
+                  <FormField label="Scope 2 target" id="c3s2t">
+                    <Input
+                      id="c3s2t"
+                      value={data.c3Scope2Target}
+                      onChange={u("c3Scope2Target")}
+                      placeholder="-30% by 2030"
+                    />
+                  </FormField>
+                  <FormField label="Scope 2 baseline emissions" id="c3s2b">
+                    <Input
+                      id="c3s2b"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={data.c3Scope2Baseline}
+                      onChange={u("c3Scope2Baseline")}
+                      unit={gu}
+                    />
+                  </FormField>
+                  <FormField label="Scope 3 target (if any)" id="c3s3t">
+                    <Input
+                      id="c3s3t"
+                      value={data.c3Scope3Target}
+                      onChange={u("c3Scope3Target")}
+                      placeholder="-15% by 2035"
+                    />
+                  </FormField>
+                  <FormField label="Scope 3 baseline emissions" id="c3s3b">
+                    <Input
+                      id="c3s3b"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={data.c3Scope3Baseline}
+                      onChange={u("c3Scope3Baseline")}
+                      unit={gu}
+                    />
+                  </FormField>
+                </div>
+                <FormField
+                  label="Key actions to reach the targets"
+                  tooltip="List the main actions your company is implementing to meet the reduction targets."
+                >
+                  <textarea
+                    className="form-textarea"
+                    rows={3}
+                    value={data.c3Actions || ""}
+                    onChange={(e) => update({ c3Actions: e.target.value })}
+                    placeholder="One action per line, e.g.&#10;Switch to renewable electricity&#10;Electrify vehicle fleet&#10;Improve building insulation"
+                  />
+                </FormField>
+              </>
+            )}
+            <FormField
+              label="Climate transition plan"
+              tooltip="Describe your plan to mitigate climate change, including how the company reduces its GHG emissions. Relevant especially for high climate-impact sectors."
+            >
+              <textarea
+                className="form-textarea"
+                rows={4}
+                value={data.c3TransitionPlan || ""}
+                onChange={(e) => update({ c3TransitionPlan: e.target.value })}
+                placeholder="Describe your climate transition plan and how it contributes to reducing emissions…"
+              />
+            </FormField>
+          </section>
+
+          {/* ══ C4 — CLIMATE RISKS ═══════════════════════════════════════════ */}
+          <section className="form-section form-section--comprehensive">
+            <div className="comprehensive-tag">Comprehensive Module · C4</div>
+            <h3>Climate Risks</h3>
+            <p className="section-desc">
+              Describe climate-related physical and transition risks that could
+              negatively affect your company.
+            </p>
+            <FormField label="Has your company identified climate-related risks?">
+              <RadioGroup
+                name="c4HasRisks"
+                value={data.c4HasRisks}
+                onChange={u("c4HasRisks")}
+                options={YES_NO}
+              />
+            </FormField>
+            {data.c4HasRisks === "yes" && (
+              <>
+                <FormField
+                  label="Physical risks (acute & chronic hazards)"
+                  tooltip="Acute: floods, storms, wildfires. Chronic: rising temperatures, sea-level rise, drought. Note affected assets, operations, or value chain."
+                >
+                  <textarea
+                    className="form-textarea"
+                    rows={3}
+                    value={data.c4PhysicalRisks || ""}
+                    onChange={(e) =>
+                      update({ c4PhysicalRisks: e.target.value })
+                    }
+                    placeholder="Describe physical climate risks and what they affect…"
+                  />
+                </FormField>
+                <FormField
+                  label="Transition risks"
+                  tooltip="Policy/legal, technology, market, and reputational risks from the low-carbon transition."
+                >
+                  <textarea
+                    className="form-textarea"
+                    rows={3}
+                    value={data.c4TransitionRisks || ""}
+                    onChange={(e) =>
+                      update({ c4TransitionRisks: e.target.value })
+                    }
+                    placeholder="Describe transition risks (policy, technology, market, reputation)…"
+                  />
+                </FormField>
+                <div className="form-grid form-grid--2">
+                  <FormField
+                    label="Time horizon of main risks"
+                    tooltip="When the risks are expected to materialise."
+                  >
+                    <Select
+                      value={data.c4TimeHorizon}
+                      onChange={u("c4TimeHorizon")}
+                      placeholder="Select horizon…"
+                      options={[
+                        { value: "short", label: "Short term (within 1 year)" },
+                        { value: "medium", label: "Medium term (2–5 years)" },
+                        { value: "long", label: "Long term (over 5 years)" },
+                      ]}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Adaptation actions started?"
+                    tooltip="Has the company started climate adaptation actions in response to the identified risks?"
+                  >
+                    <RadioGroup
+                      name="c4Adaptation"
+                      value={data.c4Adaptation}
+                      onChange={u("c4Adaptation")}
+                      options={YES_NO}
+                    />
+                  </FormField>
+                </div>
+                {data.c4Adaptation === "yes" && (
+                  <FormField label="Adaptation measures">
+                    <textarea
+                      className="form-textarea"
+                      rows={2}
+                      value={data.c4AdaptationDescription || ""}
+                      onChange={(e) =>
+                        update({ c4AdaptationDescription: e.target.value })
+                      }
+                      placeholder="Describe the adaptation measures taken…"
+                    />
+                  </FormField>
+                )}
+                <FormField
+                  label="Potential financial impact (optional)"
+                  tooltip="How the listed risks could affect financial performance and business operations."
+                >
+                  <textarea
+                    className="form-textarea"
+                    rows={2}
+                    value={data.c4FinancialImpact || ""}
+                    onChange={(e) =>
+                      update({ c4FinancialImpact: e.target.value })
+                    }
+                    placeholder="Describe potential effects on financial performance and operations…"
+                  />
+                </FormField>
+              </>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }

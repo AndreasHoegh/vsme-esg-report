@@ -58,6 +58,28 @@
   border-bottom: 1px solid var(--slate-100);
 }
 
+/* Comprehensive (Udvidet) Module sub-sections — visually distinct from Basic */
+.form-section--comprehensive {
+  border-color: var(--green-600, #276b4d);
+  border-left: 4px solid var(--green-600, #276b4d);
+  background: linear-gradient(0deg, rgba(39, 107, 77, 0.03), rgba(39, 107, 77, 0.03)), #fff;
+}
+
+.comprehensive-tag {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--green-600, #276b4d);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
 .section-desc {
   font-size: 13px;
   color: var(--slate-500);

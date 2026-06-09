@@ -148,6 +148,14 @@ function PolicyRow({ area }) {
 }
 
 export default function Step2_Policies() {
+  const { data, update } = useForm()
+  const comprehensive = data.reportingModule === 'comprehensive'
+  const adopted = POLICY_AREAS.filter(
+    a => data[a.field] === 'yes' || data[a.field] === 'in_progress'
+  )
+  const setC2 = (bucket, field, val) =>
+    update({ [bucket]: { ...(data[bucket] || {}), [field]: val } })
+
   return (
     <div className="step-content">
       <div className="step-intro">
@@ -170,6 +178,56 @@ export default function Step2_Policies() {
           ))}
         </div>
       </section>
+
+      {comprehensive && (
+        <section className="form-section form-section--comprehensive">
+          <div className="comprehensive-tag">Comprehensive Module · C2</div>
+          <h3>Policy &amp; Action Descriptions</h3>
+          <p className="section-desc">
+            For each topic where you have a policy or action in place, describe
+            the existing practices and any future initiatives or targets. These
+            descriptions appear with the Policies section of the report.
+          </p>
+          {adopted.length === 0 ? (
+            <p className="section-desc">
+              Mark at least one topic as <em>Yes</em> or <em>In Progress</em> in
+              the matrix above to describe it here.
+            </p>
+          ) : (
+            <>
+              {adopted.map(area => (
+                <div key={area.field} className="form-field">
+                  <label className="form-label">{area.label}</label>
+                  <textarea
+                    className="form-textarea"
+                    rows={2}
+                    value={(data.c2Current || {})[area.field] || ''}
+                    onChange={e => setC2('c2Current', area.field, e.target.value)}
+                    placeholder={`Existing practices / policies / actions for ${area.label.toLowerCase()}…`}
+                  />
+                  <textarea
+                    className="form-textarea"
+                    rows={2}
+                    style={{ marginTop: 8 }}
+                    value={(data.c2Future || {})[area.field] || ''}
+                    onChange={e => setC2('c2Future', area.field, e.target.value)}
+                    placeholder={`Future initiatives / targets for ${area.label.toLowerCase()} (optional)…`}
+                  />
+                </div>
+              ))}
+              <div className="form-field">
+                <label className="form-label">Highest management level responsible for implementation</label>
+                <input
+                  className="form-input"
+                  value={data.c2ResponsibleLevel || ''}
+                  onChange={e => update({ c2ResponsibleLevel: e.target.value })}
+                  placeholder="e.g. Managing Director, Head of Sustainability"
+                />
+              </div>
+            </>
+          )}
+        </section>
+      )}
     </div>
   )
 }

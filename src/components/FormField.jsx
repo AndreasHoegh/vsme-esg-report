@@ -1,5 +1,6 @@
 import React from 'react'
 import Tooltip from './Tooltip'
+import { fmtNum } from '../utils/format'
 import './FormField.css'
 
 export function FormField({ label, required, tooltip, error, children, hint, id }) {
@@ -133,7 +134,7 @@ export function CalcField({ label, value, unit, tooltip }) {
       </span>
       <span className="calc-value">
         {value !== '' && value !== null && value !== undefined && !isNaN(value)
-          ? `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unit}`
+          ? `${fmtNum(value)} ${unit}`
           : <span className="calc-placeholder">Calculated automatically</span>
         }
       </span>

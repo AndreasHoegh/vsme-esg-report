@@ -102,13 +102,17 @@ const REPORTING_BASIS = [
 ];
 
 const REPORTING_MODULE = [
-  { value: "basic", label: "Basic Module only (B1–B11)" },
-  { value: "basic_narrative", label: "Basic + Narrative Module" },
+  { value: "basic", label: "Basic Module (B1–B11)" },
+  {
+    value: "comprehensive",
+    label: "Basic + Comprehensive Module (B1–B11 + C1–C9)",
+  },
 ];
 
 export default function Step1_GeneralInfo() {
   const { data, update } = useForm();
   const u = (field) => (val) => update({ [field]: val });
+  const comprehensive = data.reportingModule === "comprehensive";
 
   const empCount = Number(data.employeeCount);
 
@@ -225,6 +229,18 @@ export default function Step1_GeneralInfo() {
             />
           </FormField>
           <FormField
+            label="Secondary Address"
+            tooltip="Secondary address (optional)."
+            id="secondaryAddress"
+          >
+            <Input
+              id="secondaryAddress"
+              value={data.secondaryAddress}
+              onChange={u("secondaryAddress")}
+              placeholder="123 Main Street, 10115 Berlin"
+            />
+          </FormField>
+          <FormField
             label="Website"
             tooltip="Company website URL."
             id="website"
@@ -281,8 +297,8 @@ export default function Step1_GeneralInfo() {
               : empCount < 50
                 ? "🟢 Small enterprise — VSME Basic module applies"
                 : empCount < 250
-                  ? "🟡 Medium enterprise — VSME Basic module applies; consider Narrative module"
-                  : "🔴 Large enterprise — VSME Basic + Narrative module recommended; ESRS may apply"}
+                  ? "🟡 Medium enterprise — VSME Basic module applies; consider Comprehensive module"
+                  : "🔴 Large enterprise — VSME Basic + Comprehensive module recommended; ESRS may apply"}
           </div>
         )}
       </section>
@@ -445,7 +461,8 @@ export default function Step1_GeneralInfo() {
         <div className="form-grid form-grid--2">
           <div>
             <p className="section-desc" style={{ marginBottom: 8 }}>
-              <strong>Company Logo</strong> — shown top-left on the cover (recommended: transparent PNG, square)
+              <strong>Company Logo</strong> — shown top-left on the cover
+              (recommended: transparent PNG, square)
             </p>
             <ImageUpload
               fieldKey="logoImage"
@@ -458,7 +475,8 @@ export default function Step1_GeneralInfo() {
           </div>
           <div>
             <p className="section-desc" style={{ marginBottom: 8 }}>
-              <strong>Cover Photo</strong> — large hero image filling the right side of the cover (recommended: landscape)
+              <strong>Cover Photo</strong> — large hero image filling the right
+              side of the cover (recommended: landscape)
             </p>
             <ImageUpload
               fieldKey="coverPhoto"
@@ -563,37 +581,100 @@ export default function Step1_GeneralInfo() {
         {data.sdgGoals?.length > 0 && (
           <div style={{ marginTop: 20 }}>
             <p className="section-desc" style={{ marginBottom: 12 }}>
-              Describe your company's specific contribution to each selected goal. These narratives appear individually in the report.
+              Describe your company's specific contribution to each selected
+              goal. These narratives appear individually in the report.
             </p>
-            {[...(data.sdgGoals || [])].sort((a, b) => a - b).map((goalNum) => {
-              const goal = SDG_GOALS.find((g) => g.n === goalNum);
-              if (!goal) return null;
-              return (
-                <FormField
-                  key={goalNum}
-                  label={`SDG ${goalNum}: ${goal.name}`}
-                  tooltip={`Describe how your company contributes to goal ${goalNum} — ${goal.name}.`}
-                >
-                  <textarea
-                    className="form-textarea"
-                    rows={3}
-                    value={(data.sdgGoalNarratives || {})[goalNum] || ""}
-                    onChange={(e) =>
-                      update({
-                        sdgGoalNarratives: {
-                          ...(data.sdgGoalNarratives || {}),
-                          [goalNum]: e.target.value,
-                        },
-                      })
-                    }
-                    placeholder={`Describe how your company contributes to ${goal.name}…`}
-                  />
-                </FormField>
-              );
-            })}
+            {[...(data.sdgGoals || [])]
+              .sort((a, b) => a - b)
+              .map((goalNum) => {
+                const goal = SDG_GOALS.find((g) => g.n === goalNum);
+                if (!goal) return null;
+                return (
+                  <FormField
+                    key={goalNum}
+                    label={`SDG ${goalNum}: ${goal.name}`}
+                    tooltip={`Describe how your company contributes to goal ${goalNum} — ${goal.name}.`}
+                  >
+                    <textarea
+                      className="form-textarea"
+                      rows={3}
+                      value={(data.sdgGoalNarratives || {})[goalNum] || ""}
+                      onChange={(e) =>
+                        update({
+                          sdgGoalNarratives: {
+                            ...(data.sdgGoalNarratives || {}),
+                            [goalNum]: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder={`Describe how your company contributes to ${goal.name}…`}
+                    />
+                  </FormField>
+                );
+              })}
           </div>
         )}
       </section>
+
+      {comprehensive && (
+        <section className="form-section form-section--comprehensive">
+          <div className="comprehensive-tag">Comprehensive Module · C1</div>
+          <h3>Strategy: Business Model &amp; Sustainability Initiatives</h3>
+          <p className="section-desc">
+            Describe your business model and how sustainability connects to it.
+            These disclosures appear with the General Information section of the
+            report.
+          </p>
+          <FormField
+            label="Significant groups of products and/or services"
+            tooltip="Briefly describe your company's most significant products and/or services."
+          >
+            <textarea
+              className="form-textarea"
+              rows={3}
+              value={data.c1Products || ""}
+              onChange={(e) => update({ c1Products: e.target.value })}
+              placeholder="Describe the main products / services your company offers…"
+            />
+          </FormField>
+          <FormField
+            label="Significant markets"
+            tooltip="E.g. B2B, wholesale, retail, and the countries / geographies served."
+          >
+            <textarea
+              className="form-textarea"
+              rows={3}
+              value={data.c1Markets || ""}
+              onChange={(e) => update({ c1Markets: e.target.value })}
+              placeholder="Describe the company's most significant markets (B2B, retail, regions…)…"
+            />
+          </FormField>
+          <FormField
+            label="Main business relationships"
+            tooltip="Key suppliers (number, sector, location), customers, distribution channels, consumers."
+          >
+            <textarea
+              className="form-textarea"
+              rows={3}
+              value={data.c1BusinessRelations || ""}
+              onChange={(e) => update({ c1BusinessRelations: e.target.value })}
+              placeholder="Describe key suppliers, customers, distribution channels…"
+            />
+          </FormField>
+          <FormField
+            label="Key strategy elements related to sustainability"
+            tooltip="Central elements of your strategy that relate to or affect sustainability matters. Leave blank if not applicable."
+          >
+            <textarea
+              className="form-textarea"
+              rows={3}
+              value={data.c1StrategyElements || ""}
+              onChange={(e) => update({ c1StrategyElements: e.target.value })}
+              placeholder="Describe strategy elements connected to sustainability…"
+            />
+          </FormField>
+        </section>
+      )}
     </div>
   );
 }
