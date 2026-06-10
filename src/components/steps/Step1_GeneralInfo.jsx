@@ -493,8 +493,20 @@ export default function Step1_GeneralInfo() {
       <section className="form-section">
         <h3>Company Description</h3>
         <FormField
+          label="Report Introduction (cover statement)"
+          tooltip="A longer opening statement shown on the front cover of the report — e.g. why you report, your overall footprint, and what is still missing. Leave blank to fall back to a short excerpt of the company description."
+        >
+          <textarea
+            className="form-textarea"
+            rows={7}
+            value={data.coverIntro || ""}
+            onChange={(e) => update({ coverIntro: e.target.value })}
+            placeholder="At [Company], we believe that understanding our environmental and social impact is part of building a responsible business. This is our first voluntary sustainability report…"
+          />
+        </FormField>
+        <FormField
           label="About the Company"
-          tooltip="Brief description of main business activities, products, and services."
+          tooltip="Brief description of main business activities, products, and services. Shown in the B1 General Information section."
         >
           <RichEditor
             value={data.companyDescription}

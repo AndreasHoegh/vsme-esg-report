@@ -117,6 +117,7 @@ const initialData = {
   contactEmail: "",
   contactPhone: "",
   companyDescription: "",
+  coverIntro: "", // long opening statement shown on the report cover
   sdgGoals: [],
   sdgNarrative: "",
 

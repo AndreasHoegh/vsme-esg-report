@@ -964,6 +964,39 @@ async function applyBlock(canvas, block, config, y) {
       return y + t.getScaledHeight() + 14;
     }
 
+    case "callout": {
+      // Rounded info box (e.g. explaining "Not assessed" categories). Uses the
+      // report's accent colour with white text.
+      const { fontPair } = config;
+      const text = (block.text || "").trim();
+      if (!text) return y;
+      const boxW = block.width || CONTENT_W;
+      const t = tb(text, {
+        left: ML + 16,
+        top: y + 12,
+        width: boxW - 32,
+        fontSize: 9,
+        fill: "#ffffff",
+        lineHeight: 1.5,
+        fontFamily: fontPair.body,
+      });
+      const boxH = t.getScaledHeight() + 24;
+      const rect = sel(
+        new fabric.Rect({
+          left: ML,
+          top: y,
+          width: boxW,
+          height: boxH,
+          rx: 10,
+          ry: 10,
+          fill: block.color || theme.primary || "#1e2a52",
+        }),
+      );
+      canvas.add(rect);
+      canvas.add(sel(t));
+      return y + boxH + 14;
+    }
+
     case "photo-placeholder": {
       const phW = block.width || CONTENT_W;
       const phH = block.height || 160;
@@ -1763,14 +1796,28 @@ function renderCoverESG365(canvas, data, config) {
       }),
     );
 
-  // Company description excerpt
+  // Cover statement: prefer the dedicated long intro; otherwise a short excerpt
+  // of the company description. The intro is plain text and keeps its paragraphs.
+  const coverIntro = (data?.coverIntro || "").trim();
   const rawDesc = data?.companyDescription
     ? data.companyDescription
         .replace(/<[^>]+>/g, "")
         .replace(/\s+/g, " ")
         .trim()
     : "";
-  if (rawDesc) {
+  if (coverIntro) {
+    canvas.add(
+      tb(coverIntro, {
+        left: ML,
+        top: 216,
+        width: leftW - 56,
+        fontSize: 8.5,
+        fill: "#555555",
+        lineHeight: 1.5,
+        fontFamily: fontPair.body,
+      }),
+    );
+  } else if (rawDesc) {
     const excerpt =
       rawDesc.length > 240 ? rawDesc.slice(0, 240) + "…" : rawDesc;
     canvas.add(
@@ -2311,6 +2358,16 @@ export default function CanvasEditor({
   const prevFontPairRef = useRef(null); // tracks previous font pair for in-place font swapping
   const autoSaveTimerRef = useRef(null);
   const handleSaveCanvasRef = useRef(null);
+  const quotaWarnedRef = useRef(false); // ensures the "storage full" warning shows only once
+  const warnQuotaRef = useRef(null);
+  warnQuotaRef.current = () => {
+    if (quotaWarnedRef.current) return;
+    quotaWarnedRef.current = true;
+    alert(
+      'Browserens lagerplads er fuld — nogle ændringer kunne ikke gemmes lokalt. ' +
+        'Brug "Cloud" for at gemme rapporten sikkert, eller brug færre/mindre billeder.',
+    );
+  };
   const photoUploadTargetRef = useRef(null);
 
   // Prefer pendingCanvasDraft prop (passed directly from cloud load) over localStorage.
@@ -2468,12 +2525,18 @@ export default function CanvasEditor({
         );
       });
       localStorage.setItem(USER_OBJECTS_KEY, JSON.stringify(toStore));
-    } catch {}
+    } catch (e) {
+      warnQuotaRef.current?.(e);
+    }
     // Save full page state as an override. Strip image src before persisting (restored from
     // data.images on load). Include a form data snapshot so stale overrides are discarded
     // on next load if the user has changed form data since these were saved.
     pageOverridesRef.current.states[idx] = _stripImgSrc(json);
     pageOverridesRef.current.pageCount = pagesRef.current?.length ?? 0;
+    // Record the page title this override belongs to, so it isn't applied to a
+    // different page if sections are later added/removed (see apply block).
+    if (!pageOverridesRef.current.titles) pageOverridesRef.current.titles = {};
+    pageOverridesRef.current.titles[idx] = pagesRef.current?.[idx]?.title;
     const { images: _oi, ...overrideSnap } = dataRef.current;
     pageOverridesRef.current.dataSnapshot = overrideSnap;
     try {
@@ -2481,7 +2544,9 @@ export default function CanvasEditor({
         PAGE_OVERRIDES_KEY,
         JSON.stringify(pageOverridesRef.current),
       );
-    } catch {}
+    } catch (e) {
+      warnQuotaRef.current?.(e);
+    }
     setCustomizedPages((prev) =>
       prev.has(idx) ? prev : new Set([...prev, idx]),
     );
@@ -2565,17 +2630,13 @@ export default function CanvasEditor({
       } catch {}
     }
 
-    // If the saved overrides are for a different page count, they're stale — clear them.
-    if (
-      pageOverridesRef.current.pageCount !== 0 &&
-      pageOverridesRef.current.pageCount !== pages.length
-    ) {
-      pageOverridesRef.current = { pageCount: pages.length, states: {} };
-      try {
-        localStorage.removeItem(PAGE_OVERRIDES_KEY);
-      } catch {}
-      setCustomizedPages(new Set());
-    }
+    // Page-identity guard (applied per page below). Instead of wiping ALL manual
+    // customisations whenever the page count changes, each override records the
+    // title of the page it was saved for. An override is only re-applied if the
+    // page at that index still has the same title — so adding/removing a section
+    // no longer destroys customisations on the pages that didn't move, and an
+    // override is simply skipped (not deleted) if its page shifted.
+    pageOverridesRef.current.pageCount = pages.length;
 
     const instances = new Array(pages.length).fill(null);
     pages.forEach((page, i) => {
@@ -2786,8 +2847,14 @@ export default function CanvasEditor({
           canvas.renderAll();
         }
       });
-      // Priority: page override (user's manual edits) > saved draft > rebuild from data
-      const override = pageOverridesRef.current.states[i];
+      // Priority: page override (user's manual edits) > saved draft > rebuild from data.
+      // Only apply an override if the page at this index still matches the title it
+      // was saved for (legacy overrides without a recorded title apply by index).
+      const overrideTitle = pageOverridesRef.current.titles?.[i];
+      const override =
+        overrideTitle === undefined || overrideTitle === page.title
+          ? pageOverridesRef.current.states[i]
+          : null;
       const savedState = localDraft?.states?.[i];
       if (override) {
         canvas.loadFromJSON(override, () => {
@@ -2857,6 +2924,12 @@ export default function CanvasEditor({
     });
     fabricInstances.current = instances;
     return () => {
+      // Cancel any pending debounced autosave so it can't fire against disposed
+      // canvases. Do NOT save here: this cleanup also runs on React StrictMode's
+      // mount→unmount→remount cycle while pages are still rendering asynchronously,
+      // which would persist blank canvas states. The "← Back" button already flushes
+      // a save on a real close, when the canvases are fully rendered.
+      clearTimeout(autoSaveTimerRef.current);
       instances.forEach((c) => c?.dispose());
       fabricInstances.current = [];
     };

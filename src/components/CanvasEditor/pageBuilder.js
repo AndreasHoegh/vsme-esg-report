@@ -81,6 +81,9 @@ function estimateBlockHeight(block) {
     }
     case "text-block":
       return Math.ceil((block.content?.length || 0) / 120) * 14 + 22;
+    case "callout":
+      // ~80 chars/line at fontSize 9 within the box, + 24 padding + 14 gap
+      return Math.ceil((block.text?.length || 0) / 80) * 14 + 38;
     case "photo-placeholder":
       return (block.height || 160) + 24;
     case "text-photo":
@@ -1011,6 +1014,20 @@ function buildB3Scope3Page(data) {
 
   const ghgUnit = data.ghgUnit || "tCO2e";
   const g = (v) => (v ? `${fmtNum(v)} ${ghgUnit}` : "");
+  // Every Scope 3 category is listed; unfilled ones are shown as "Not assessed"
+  // rather than hidden, so the disclosure is transparent about coverage.
+  const g3 = (v) => (v ? `${fmtNum(v)} ${ghgUnit}` : "Not assessed");
+  const categories = [
+    ["Business travel", data.scope3BusinessTravel],
+    ["Employee commuting", data.scope3Commuting],
+    ["Procurement (goods, materials, services)", data.scope3PurchasedGoods],
+    ["Waste and recycling", data.scope3Waste],
+    ["Upstream transport", data.scope3UpstreamTransport],
+    ["Downstream transport (to customer)", data.scope3DownstreamTransport],
+    ["Use of sold products", data.scope3UseOfProducts],
+  ];
+  const anyNotAssessed = categories.some(([, v]) => !v);
+  const company = data.companyName || "The company";
 
   return {
     title: "B3 — GHG Scope 3",
@@ -1029,23 +1046,23 @@ function buildB3Scope3Page(data) {
       {
         type: "data-table",
         columns: 1,
-        rows: rows(
-          ["Business travel", g(data.scope3BusinessTravel)],
-          ["Employee commuting", g(data.scope3Commuting)],
-          [
-            "Procurement (goods, materials, services)",
-            g(data.scope3PurchasedGoods),
-          ],
-          ["Waste and recycling", g(data.scope3Waste)],
-          ["Upstream transport", g(data.scope3UpstreamTransport)],
-          [
-            "Downstream transport (to customer)",
-            g(data.scope3DownstreamTransport),
-          ],
-          ["Use of sold products", g(data.scope3UseOfProducts)],
-          ["Total Scope 3", g(data.scope3Emissions)],
-        ),
+        rows: [
+          ...categories.map(([label, v]) => ({ label, value: g3(v) })),
+          { label: "Total Scope 3", value: g(data.scope3Emissions) || "Not assessed" },
+        ],
       },
+      ...(anyNotAssessed
+        ? [
+            {
+              type: "callout",
+              text:
+                `Categories marked "Not assessed" represent emission sources ${company} has not yet ` +
+                `quantified. They are recognised as part of the value-chain footprint but are excluded ` +
+                `from this report due to data limitations. Quantifying these categories is a stated goal ` +
+                `for future reporting periods.`,
+            },
+          ]
+        : []),
     ],
   };
 }
@@ -1807,7 +1824,10 @@ function buildCertificationsPage(data) {
     ]);
   }
 
-  if (!certs.length && standards.length <= 1) return null;
+  // Only produce a Certifications page when the company actually has certifications
+  // or permits. The auto-derived "Reporting Standards & Frameworks" block alone is
+  // not enough to warrant a dedicated page.
+  if (!certs.length) return null;
 
   const certRows = certs.map((c) => {
     const dashIdx = c.indexOf(" - ");
